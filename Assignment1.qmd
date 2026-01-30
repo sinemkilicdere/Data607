@@ -1,0 +1,30 @@
+---
+title: "Data607 - Assignment 1 Approach"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Introduction
+
+This report uses the Pens and Printers Product Sales dataset published on Kaggle. The dataset contains sales data related to printers and office supply products. The source of the dataset: <https://www.kaggle.com/datasets/lorenzovzquez/pens-and-printers-product-sales>
+
+## Dataset Summary
+
+This dataset includes product sales records for pens, printers and related items. Each row represents a sales transaction, while the columns describe product details, sales quantities, pricing and other relevant business information.
+
+## Motivation for Selection
+
+I chose this dataset because it directly relates to my business interests. I am currently working on a business plan connected to the printing industry, and I want to apply data and business thinking across different areas of my life and work.
+
+## Planned Approach
+
+For this assignment, my plan is to first make the dataset available online by storing it in a public GitHub repository. I will then load the dataset into R using a web link instead of a local file path so that the work is reproducible. After loading the data, I will select a smaller set of columns that are the most relevant for analysis. If there is a clear target or outcome variable in the dataset, I will make sure to include it. I will also rename columns to make them easier to understand and replace any abbreviated or coded values with more meaningful labels. The final result will be a clean and well organized data frame that can be used for further analysis.
+
+## Potential Data Challenges
+
+While working with dataset, I expect to face a few challenges. These may include missing values, unclear column names or categorical values that are stored as codes instead of readable labels.
+
+## Conclusions
+
+Once the data has been properly loaded and cleaned, the next step would be to explore the data and look for patterns.
