@@ -28,3 +28,42 @@ While working with dataset, I expect to face a few challenges. These may include
 ## Conclusions
 
 Once the data has been properly loaded and cleaned, the next step would be to explore the data and look for patterns.
+
+```{r}
+library(tidyverse)
+
+url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/data/product_sales.csv"
+
+df <- read_csv(
+  file = url,
+  show_col_types = FALSE
+)
+
+glimpse(df)
+```
+
+```{r}
+sales_df <- df %>%
+  select(
+    week,
+    sales_method,
+    nb_sold,
+    revenue,
+    years_as_customer,
+    nb_site_visits,
+    state
+  )
+
+glimpse(sales_df)
+```
+
+```{r}
+sales_df_clean <- sales_df %>%
+  rename(
+    units_sold = nb_sold,
+    site_visits = nb_site_visits,
+    customer_years = years_as_customer
+  )
+
+glimpse(sales_df_clean)
+```
