@@ -85,3 +85,72 @@ INSERT INTO ratings (user_id, series_id, rating) SELECT u.user_id, s.series_id, 
 
 ('Oscar', 'Breaking Bad', 4), ('Oscar', 'Suits', 4), ('Oscar', 'Peaky Blinders', 4), ('Oscar', 'House of Cards', 3) ) AS v(user_name, series_title, rating) JOIN users u ON u.name = v.user_name JOIN series s ON s.title = v.series_title;
 ```
+
+## Loading Data to into R
+
+connected to PostgreSQL from R and load the ratings data into a dataframe. I stored my database credentials in a local .Renviron file so my password is not written in my code. \*\* I learned this part (Password hiding) via AI Compiler.
+
+```{r}
+library(DBI)
+library(RPostgres)
+library(dplyr)
+library(tidyr)
+
+con <- dbConnect(
+  RPostgres::Postgres(),
+  host = Sys.getenv("PGHOST"),
+  port = as.integer(Sys.getenv("PGPORT")),
+  dbname = Sys.getenv("PGDATABASE"),
+  user = Sys.getenv("PGUSER"),
+  password = Sys.getenv("PGPASSWORD")
+)
+
+dbListTables(con)
+```
+
+```{r}
+ratings_df <- dbGetQuery(con, "
+  SELECT u.name AS user,
+         s.title AS series,
+         r.rating
+  FROM ratings r
+  JOIN users u ON r.user_id = u.user_id
+  JOIN series s ON r.series_id = s.series_id
+  ORDER BY u.name, s.title;
+")
+
+ratings_df
+```
+
+```{r}
+full_grid <- expand_grid(
+  user = unique(ratings_df$user),
+  series = unique(ratings_df$series)
+)
+
+ratings_full <- full_grid %>%
+  left_join(ratings_df, by = c("user", "series")) %>%
+  arrange(user, series)
+
+ratings_full
+```
+
+```{r}
+avg_by_series <- ratings_full %>%
+  group_by(series) %>%
+  summarise(
+    avg_rating = mean(rating, na.rm = TRUE),
+    num_ratings = sum(!is.na(rating))
+  ) %>%
+  arrange(desc(avg_rating))
+
+avg_by_series
+```
+
+```{r}
+dbDisconnect(con)
+```
+
+## Result
+
+In R, I successfully pulled the ratings data from PostgreSQL into dataframe. Then created a full user and series grid so missing ratings showed up as NA. After that, I calculated the average rating and the number of ratings for each series.
