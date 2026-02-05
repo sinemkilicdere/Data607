@@ -1,0 +1,46 @@
+---
+title: "week2b_classification_metrics.qmd"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# Week 2B Classification Metrics
+
+##Approach
+
+## Introduction
+
+In this assignment, I am working on understanding how a classification model is evaluated. I am not building or training a model on week 2b. Instead, I am given model predictions and my submission is to analyze them and understand how different evaluation methods work. Since I am new to machine learning concepts, my main goal is to understand what each step mean.
+
+## What the Dataset Is
+
+The dataset already contains predictions from a model. One column shows the predicted probability that an observation belongs to the female class. Another column shows a predicted class label, and the last column shows the actual class label. I learned that models first predict probabilities, and then those probabilities are turned into class labels using a threshold. Because of this, I will focus on the probability column and not rely on the given predicted class.
+
+## First Step: Looking at the Baseline
+
+Before evaluating the model, I plan to calculate the null error rate. The null error rate shows how wrong we would be if we always guessed the most common class. This step is important because it gives me a baseline to compare against. If a model performs worse than this, then it is not useful.
+
+## Understanding Thresholds
+
+Next, I will work with probability thresholds. A threshold is the rule that decides when a probability becomes a positive or negative prediction. I plan to test different thresholds, specifically 0.2, 0.5, and 0.8. This will help me see how predictions change when I am more or less strict about labeling something as positive.
+
+## Confusion Matrix as the Main Tool
+
+For each threshold, I will manually calculate the confusion matrix. This means counting how many predictions are true positives, false positives, true negatives, and false negatives. I am doing this step carefully because I learned that all evaluation metrics are built from these four numbers.
+
+## Calculating Performance Metrics
+
+After building the confusion matrices, I will calculate accuracy, precision, recall, and F1 score. Instead of just using built-in functions, I will compute these metrics myself using the formulas. This helps me understand what each metric actually measures and how it relates back to the confusion matrix.
+
+## Comparing Thresholds
+
+Once I have metrics for each threshold, I will compare them to see how performance changes. I expect that lower thresholds will catch more positive cases but also create more false positives, while higher thresholds will be more conservative. This comparison helps explain why there is no single best threshold for every situation.
+
+## Explaining Real World Use Cases
+
+Finally, I will explain when different thresholds might be useful in real life. For example, a lower threshold may be better when missing a positive case is risky, while a higher threshold may be better when false positives are costly. This step connects the technical work to real-world decision making.
+
+## Expected Outcome
+
+By following these steps, I expect to gain a better understanding of how classification models are evaluated, how thresholds affect results, and why different metrics are used. This assignment helps me build intuition rather than just memorizing formulas.
