@@ -44,3 +44,157 @@ Finally, I will explain when different thresholds might be useful in real life. 
 ## Expected Outcome
 
 By following these steps, I expect to gain a better understanding of how classification models are evaluated, how thresholds affect results, and why different metrics are used. This assignment helps me build intuition rather than just memorizing formulas.
+
+## Step 1 Load the data
+
+```{r}
+library(tidyverse)
+url <- "https://raw.githubusercontent.com/acatlin/data/refs/heads/master/penguin_predictions.csv"
+df <- read_csv(url)
+
+glimpse(df)
+head(df)
+```
+
+## Step 2 Null error rate
+
+```{r}
+# count the actual classes
+class_counts <- table(df$sex)
+class_counts
+
+# majority class (most common label)
+majority_class <- names(which.max(class_counts))
+majority_class
+
+# null error rate = error if we always predict the majority class
+null_error_rate <- mean(df$sex != majority_class)
+null_error_rate
+```
+
+## Step 3 Class distribution plot
+
+```{r}
+library(ggplot2)
+
+ggplot(df, aes(x = sex)) +
+  geom_bar() +
+  labs(
+    title = "Class Distribution of Sex",
+    x = "Sex",
+    y = "Count"
+  )
+```
+
+## Step 4 Confusion matrices at thresholds 0.2 0.5 0.8
+
+```{r}
+# Ignore .pred_class and recompute predictions from probabilities
+make_confusion <- function(threshold) {
+  pred <- ifelse(df$.pred_female > threshold, "female", "male")
+
+  TP <- sum(pred == "female" & df$sex == "female")
+  FP <- sum(pred == "female" & df$sex == "male")
+  TN <- sum(pred == "male" & df$sex == "male")
+  FN <- sum(pred == "male" & df$sex == "female")
+
+  tibble(
+    threshold = threshold,
+    TP = TP,
+    FP = FP,
+    TN = TN,
+    FN = FN
+  )
+}
+
+conf_02 <- make_confusion(0.2)
+conf_05 <- make_confusion(0.5)
+conf_08 <- make_confusion(0.8)
+
+conf_02
+conf_05
+conf_08
+```
+
+```{r}
+cm_02 <- matrix(
+  c(conf_02$TP, conf_02$FP, conf_02$FN, conf_02$TN),
+  nrow = 2,
+  byrow = TRUE,
+  dimnames = list(
+    Predicted = c("Female", "Male"),
+    Actual = c("Female", "Male")
+  )
+)
+
+cm_05 <- matrix(
+  c(conf_05$TP, conf_05$FP, conf_05$FN, conf_05$TN),
+  nrow = 2,
+  byrow = TRUE,
+  dimnames = list(
+    Predicted = c("Female", "Male"),
+    Actual = c("Female", "Male")
+  )
+)
+
+cm_08 <- matrix(
+  c(conf_08$TP, conf_08$FP, conf_08$FN, conf_08$TN),
+  nrow = 2,
+  byrow = TRUE,
+  dimnames = list(
+    Predicted = c("Female", "Male"),
+    Actual = c("Female", "Male")
+  )
+)
+
+cm_02
+cm_05
+cm_08
+```
+
+## Step 5 Metrics table
+
+```{r}
+calc_metrics <- function(conf) {
+  accuracy  <- (conf$TP + conf$TN) / (conf$TP + conf$FP + conf$TN + conf$FN)
+  precision <- conf$TP / (conf$TP + conf$FP)
+  recall    <- conf$TP / (conf$TP + conf$FN)
+  f1        <- 2 * precision * recall / (precision + recall)
+
+  tibble(
+    threshold = conf$threshold,
+    accuracy = accuracy,
+    precision = precision,
+    recall = recall,
+    f1 = f1
+  )
+}
+
+metrics_table <- bind_rows(
+  calc_metrics(conf_02),
+  calc_metrics(conf_05),
+  calc_metrics(conf_08)
+)
+
+metrics_table
+```
+
+## Step 6 Threshold use cases
+
+### Why null error rate matters
+
+The null error rate is like a starting point. It shows what would happen if we did not use the model at all and just guessed the same answer every time. This helps me understand if the model is doing anything useful or not. If the model cannot beat this simple guess, then there is no point using it.
+
+### When a 0.2 threshold makes more sense
+
+A 0.2 threshold makes sense when it is more important to catch as many positive cases as possible. With a lower threshold, the model says positive more often. This means we catch more real positives, but we also make more mistakes by flagging some negatives as positives.
+
+For example, in medical checks, it is usually better to be extra careful and send more people for follow up tests instead of missing someone who actually has a problem.
+
+### When a 0.8 threshold makes more sense
+
+A 0.8 threshold makes sense when making a false positive is a big problem. With a higher threshold, the model only says positive when it is really sure. This means fewer false alarms, but we might miss some true positives.
+
+For example, when approving a big loan, it is risky to approve someone by mistake, so it makes sense to only approve cases with very high confidence.
+
+Overall, lower thresholds mean more positives and higher thresholds mean fewer positives. There is no one correct threshold. It depends on what kind of mistake matters more.
