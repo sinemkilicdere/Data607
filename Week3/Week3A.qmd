@@ -1,0 +1,171 @@
+---
+title: "Week 3A - Global Baseline Estimate"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# Week 3A - Approach
+
+## Global Baseline Estimate Recommendation System
+
+### Introduction
+
+For this assignment, I needed to build a very basic recommendation system using movie ratings. Instead of making personalized recommendations, I used something called the Global Baseline Estimate. This method does not try to guess what a specific user likes. It just looks at overall rating patterns and uses simple averages to recommend movies.
+
+### What data I used
+
+I used the movie ratings data we collected earlier. The dataset includes: • User IDs • Movie names • Ratings given by users
+
+Each row shows how one user rated one movie.
+
+### Steps to Approach Problem
+
+I followed the algorithm provided in the spreadsheet and broke the problem into small steps so it would be easier to understand.
+
+First, I calculated the global average rating. This is just the average of all ratings in the dataset. It represents the starting point for every prediction.
+
+Next, I looked at user behavior. Some users usually give high ratings and some are more strict. So I calculated a user bias, which shows how much each user’s average rating is above or below the global average.
+
+Then, I looked at the movies themselves. Some movies are generally liked more than others. So I calculated a movie bias, which shows how much each movie’s average rating is above or below the global average.
+
+### How the Global Baseline Estimate works
+
+After calculating the global mean, user bias, and movie bias, I combined them using this idea:
+
+The predicted rating equals: • the global average rating • plus the user’s bias • plus the movie’s bias
+
+This gives a baseline prediction for how a movie should be rated, without using any personalized recommendation logic.
+
+### Movie Recommendations
+
+Once I had baseline predictions, I averaged the predicted scores for each movie. Then I sorted the movies from highest to lowest predicted rating.
+
+The movies with the highest predicted ratings are the recommended movies according to the Global Baseline Estimate method.
+
+### Why Makes Sense
+
+This approach is useful because: • It is simple and easy to understand • It works even with limited data • It provides a strong baseline to compare with more advanced recommendation systems later
+
+It helped me understand how recommendation systems can work even without personalization.
+
+### Step 1: Load the libraries
+
+First, I loaded the libraries I needed.
+I used tidyverse for data manipulation and readxl to read the Excel file.
+
+```{r}
+library(tidyverse)
+library(readxl)
+```
+
+### Step 2: Load the movie ratings data
+
+Next, I loaded the movie ratings spreadsheet into R.
+This file contains the user IDs, movie names, and ratings.
+
+```{r}
+ratings_raw <- read_excel("MovieRatings.xlsx")
+glimpse(ratings_raw)
+```
+
+After loading the data, I standardize column names.
+
+```{r}
+ratings <- ratings_raw %>%
+  pivot_longer(
+    cols = -Critic,
+    names_to = "movie",
+    values_to = "rating"
+  ) %>%
+  filter(!is.na(rating)) %>%
+  rename(user_id = Critic)
+```
+
+### Step 3: Calculate the global average rating
+
+Now I calculated the global mean rating.
+This is the average of all ratings in the dataset.
+This value is important because it is the starting point for the Global Baseline Estimate.
+
+```{r}
+global_mean <- mean(ratings$rating)
+global_mean
+```
+
+### Step 4: Calculate user bias
+
+In this step, I looked at how each user rates movies on average.
+Some users usually give higher ratings, and some give lower ratings.
+To capture this, I calculated the user bias.
+First, I grouped the data by user ID and calculated each user’s average rating.Then I subtracted the global mean from the user’s average.
+
+```{r}
+user_bias <- ratings %>%
+  group_by(user_id) %>%
+  summarise(
+    user_avg = mean(rating),
+    .groups = "drop"
+  ) %>%
+  mutate(user_bias = user_avg - global_mean)
+
+user_bias
+```
+
+### Step 5: Calculate movie bias
+
+Next, I did the same thing for movies.
+Some movies are generally liked more than others.
+So I calculated the movie bias by finding each movie’s average rating and comparing it to the global mean.
+
+```{r}
+movie_bias <- ratings %>%
+  group_by(movie) %>%
+  summarise(movie_avg = mean(rating)) %>%
+  mutate(movie_bias = movie_avg - global_mean)
+
+movie_bias
+```
+
+### Step 6: Calculate the Global Baseline Estimate
+
+Now I combined everything. I joined the user bias and movie bias back into the original ratings data.
+Then I applied the Global Baseline Estimate formula.
+
+```{r}
+baseline_estimates <- ratings %>%
+  left_join(user_bias, by = "user_id") %>%
+  left_join(movie_bias, by = "movie") %>%
+  mutate(
+    baseline_prediction = global_mean + user_bias + movie_bias
+  )
+
+baseline_estimates
+```
+
+### Step 7: Create movie recommendations
+
+To recommend movies, I averaged the baseline predictions for each movie. Then I sorted the movies from highest to lowest predicted rating.
+
+```{r}
+movie_recommendations <- baseline_estimates %>%
+  group_by(movie) %>%
+  summarise(
+    predicted_rating = mean(baseline_prediction)
+  ) %>%
+  arrange(desc(predicted_rating))
+
+movie_recommendations
+```
+
+### Step 8: Top recommended movies
+
+Finally, I selected the top movies based on the highest predicted ratings.
+
+```{r}
+top_movies <- movie_recommendations %>%
+  slice_head(n = 5)
+
+top_movies
+```
+
