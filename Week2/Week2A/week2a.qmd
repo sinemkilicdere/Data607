@@ -1,0 +1,87 @@
+---
+title: "week2a_approach"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# TV Show Ratings Assignment
+
+## Introduction
+
+This assignment is for collecting rating data, store it in a database, and look at it using R. I want to understand the full process from start to finish. This includes collecting the data, saving it in a database, and doing some basic analysis. This assignment is not about building complex systems, but about learning how the tools work together.
+
+## Data Collection
+
+For this project, I will create a small ratings dataset like the ones used on streaming apps. The people I ask the users, the television series will be the items, and the ratings will be numbers from one to five. Each person will rate the series they have watched. If someone has not seen a series, they will not give a rating. This creates missing data, which is common in real life. I will collect ratings from five people and include five series so that not everyone rates everything.
+
+## Database and Storage
+
+I will use PostgreSQL to store the data. The database will have three tables. One table will store the people, one table will store the series, and one table will store the ratings. The ratings table will connect people and series and store the score each person gives. This setup allows one person to rate many series and one series to be rated by many people. Each table will have an id to keep the data organized.
+
+## Missing Data Handle
+
+Missing ratings will happen when a person has not watched a series. My plan is to not save a rating when it does not exist. Later, when the data is loaded into R, these missing ratings will appear as NA. This makes it easy to see which ratings are missing.
+
+## Data Loading and R Analysis
+
+After the data is saved in PostgreSQL, I will connect to the database from R. In R, I will load the data into a dataframe and check that it looks correct. I will look at the first few rows and the structure of the data. I will do simple checks, like finding the average rating for each series and counting how many ratings exist.
+
+## Tools and Workflow
+
+PostgreSQL will be used to store the data. SQL will be used to create tables and add data. PgAdmin 4 will be used to help manage the database. R will be used to load the data and do the analysis. This Quarto file will be the report for the assignment.
+
+## Expected Outcome
+
+At the end of this assignment, I will have a small ratings dataset stored in a database and analyzed in R. This shows that I understand the basic ideas behind databases, SQL, and simple data analysis.\
+
+## SQL Database Setup
+
+People: Kostas, Summer, Adrian, Jack, Oscar
+TV Series: Escobar, Breaking Bad, Suits, Peaky Blinders, House of Cards
+
+## Create tables
+
+First, I created a users table to store the people.
+
+``` sql
+CREATE TABLE users ( user_id SERIAL PRIMARY KEY, name TEXT NOT NULL UNIQUE );
+```
+
+Second of all, I created series table for the series titles.
+
+``` sql
+CREATE TABLE series ( series_id SERIAL PRIMARY KEY, title TEXT NOT NULL UNIQUE );
+```
+
+Lastly, I created ratings table for the rating value and connection betweeb users & series.
+
+``` sql
+CREATE TABLE ratings ( user_id INT NOT NULL REFERENCES users(user_id), series_id INT NOT NULL REFERENCES series(series_id), rating INT CHECK (rating BETWEEN 1 AND 5), PRIMARY KEY (user_id, series_id) );
+```
+
+-inserted the five people who provided ratings.
+
+``` sql
+INSERT INTO users (name) VALUES ('Kostas'), ('Summer'), ('Adrian'), ('Jack'), ('Oscar');
+```
+
+-inserted the series titles that were rated.
+
+``` sql
+INSERT INTO series (title) VALUES ('Escobar'), ('Breaking Bad'), ('Suits'), ('Peaky Blinders'), ('House of Cards');
+```
+
+-Inserted the ratings into the ratings table. Missing ratings are handled by leaving those user and series pairs out. This part is kind of copy paste and adjusting ratings and names.
+
+``` sql
+INSERT INTO ratings (user_id, series_id, rating) SELECT u.user_id, s.series_id, v.rating FROM (VALUES ('Kostas', 'Escobar', 4), ('Kostas', 'Breaking Bad', 5), ('Kostas', 'Peaky Blinders', 5), ('Kostas', 'House of Cards', 4),
+
+('Summer', 'Breaking Bad', 4), ('Summer', 'Suits', 5), ('Summer', 'Peaky Blinders', 4),
+
+('Adrian', 'Escobar', 3), ('Adrian', 'Breaking Bad', 5), ('Adrian', 'Suits', 4), ('Adrian', 'House of Cards', 4),
+
+('Jack', 'Escobar', 4), ('Jack', 'Suits', 3), ('Jack', 'Peaky Blinders', 5), ('Jack', 'House of Cards', 5),
+
+('Oscar', 'Breaking Bad', 4), ('Oscar', 'Suits', 4), ('Oscar', 'Peaky Blinders', 4), ('Oscar', 'House of Cards', 3) ) AS v(user_name, series_title, rating) JOIN users u ON u.name = v.user_name JOIN series s ON s.title = v.series_title;
+```
