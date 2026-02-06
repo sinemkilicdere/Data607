@@ -1,0 +1,155 @@
+---
+title: "Week3B"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Objective
+
+For this assignment, I worked with a time series dataset that has data recorded over time for more than one item.
+
+The reason I needed this type of data is because window functions only make sense when time is involved. Each item needs to have values changing over days so that averages over time can be calculated.
+
+## Dataset Selection
+
+I chose a dataset that includes:
+	•	a date column
+	•	an item name
+	•	a numeric value that changes over time
+
+There are multiple items in the same dataset, so each item has its own time series. This is important because the calculations should be done separately for each item, not all together.
+
+## Why Window Functions Are Needed
+
+Window functions let me calculate things like averages without collapsing the data.
+
+Instead of grouping and losing rows, window functions:
+	•	keep every original row
+	•	look at nearby rows related to the current row
+	•	calculate values based on time order
+
+This is especially useful for moving averages and year-to-date calculations.
+
+## Analytical Approach
+
+For each item in the dataset, I calculated two things:
+	1.	Year-to-date average
+This shows the average value for an item from the beginning of the year up to the current date.
+	2.	Six-day moving average
+This shows the average of the current day and the previous five days.
+Both calculations are done within each item, so one item’s values do not affect another item.
+
+### How I approached the problem
+First, I loaded and cleaned the data so the date and values were usable.
+Then, I sorted the data by item and date. This step is important because window functions depend on the correct time order.
+After that, I used dplyr window functions to calculate the year-to-date average and the six-day moving average while keeping all original rows.
+
+## Expected Outcome
+
+The final dataset will include:
+	•	Original time series data
+	•	A YTD average column for each item
+	•	A six-day moving average column for each item
+
+This output demonstrates how window functions can be used to analyze trends over time without aggregating away the original data.
+
+## Reproducibility
+
+The analysis will be:
+	•	Fully reproducible
+	•	Implemented using R and dplyr
+	•	Structured so that rendering the Quarto file reproduces the same results
+	
+# Code Base
+
+## Step 1: Load libraries
+First, I loaded the libraries I needed. I used tidyverse for data manipulation and slider for moving averages.
+
+```{r}
+library(tidyverse)
+```
+
+## Step 2: Create a time series dataset (reproducible)
+For this assignment, I created a small time series dataset directly in R.
+This makes the analysis fully reproducible without relying on external files.
+The dataset contains:
+	•	a date column
+	•	an item name
+	•	a numeric value
+	
+```{r}
+set.seed(123)
+
+data <- tibble(
+  date = rep(seq.Date(from = as.Date("2023-01-01"),
+                      by = "day",
+                      length.out = 30), 2),
+  item = rep(c("Item_A", "Item_B"), each = 30),
+  value = c(
+    round(runif(30, 10, 20), 1),
+    round(runif(30, 30, 40), 1)
+  )
+)
+
+data
+```
+
+## Step 3: Arrange data for window functions
+Before using window functions, the data must be sorted by item and date.
+
+```{r}
+data <- data %>%
+  arrange(item, date)
+```
+
+## Step 4: Calculate Year-to-Date (YTD) average
+Next, I calculated the year-to-date average for each item. This shows the average value from the beginning of the year up to the current date, calculated separately for each item.
+
+```{r}
+data <- data %>%
+  group_by(item) %>%
+  mutate(
+    ytd_average = cummean(value)
+  ) %>%
+  ungroup()
+```
+
+## Step 5: Calculate six-day moving average
+After that, I calculated the six-day moving average. This average includes the current day and the previous five days.
+The calculation resets for each item.
+
+```{r}
+data <- data %>%
+  group_by(item) %>%
+  mutate(
+    six_day_moving_avg =
+      (
+        value +
+        lag(value, 1) +
+        lag(value, 2) +
+        lag(value, 3) +
+        lag(value, 4) +
+        lag(value, 5)
+      ) / 6
+  ) %>%
+  ungroup()
+```
+
+## Step 6: Final output
+The final dataset includes:
+	•	the original data
+	•	the year-to-date average
+	•	the six-day moving average
+	
+```{r}
+data
+```
+
+## Step 7:View results for one item
+This step makes it easier to see how the window functions work for a single item.
+
+```{r}
+data %>%
+  filter(item == "Item_A")
+```
