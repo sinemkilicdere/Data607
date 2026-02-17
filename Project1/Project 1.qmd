@@ -1,0 +1,160 @@
+---
+title: "DATA 607 Project 1 - Chess Tournament Analysis"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Understanding the file first
+
+First thing I will do is look at the text file and try to understand what I am working with. This is not a CSV or Excel file. It is just a printed chess tournament table. After watching the chess crosstable video, I understand that: 1. Each player shows up in two lines 2. First line has the player name, total points, and round results 3. Second line has the state and rating information So the file looks messy, but the structure repeats for every player.
+
+## Reading the data into R
+
+Next, I will read the text file line by line using R. I will not try to read it as a table, because it is not formatted that way. Reading line by line makes it easier to pull out the parts I need.
+
+## Finding where player data starts
+
+Then, I will separate the important lines from the file. I will: 1. Grab the lines that start with a number → these are player lines 2. Grab the lines that start with a state code like MI or ON → these are rating lines This helps me line up each player with their state and rating.
+
+## Extracting basic player information
+
+After that, I will extract the basic things I need for each player: • Player name • Player state • Total points • Pre-tournament rating
+
+I will ignore the post-rating because the project only asks for pre-rating.
+
+## Getting and Matching opponent information from rounds
+
+Next, I will look at the round results. Each round shows the opponent’s player number, not their name or rating. So what I will do is: Pulling out the opponent numbers from each round and Storing them for each player
+
+Then, I will create a lookup list that connects: Player number → Pre-rating
+
+Using this, I will: 1. Match each opponent number to their pre-rating 2. Collect all opponent ratings for each player
+
+## Calculating average opponent rating
+
+After I have all opponent ratings, I will: 1. Take the average of those ratings 2. Ignore games that were not played 3. Round the final average
+
+This gives me the average pre-chess rating of opponents, which is required for the project.
+
+## Creating the final dataset
+
+Finally, I will put everything together into one clean dataset with:
+
+-   Player Name
+-   Player State
+-   Total Points
+-   Pre-Rating
+-   Average Opponent Pre-Rating
+
+I will then export this as a CSV file so it can be used in SQL or other systems.
+
+# Code Base
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(stringr)
+```
+
+### Reading Text File
+
+```{r}
+file_url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Project1/tournamentinfo.txt"
+raw_lines <- readLines(file_url)
+```
+
+I use readLines() because this is a text file, not a CSV.
+
+### Identifying player and rating lines
+
+```{r}
+player_lines <- raw_lines[str_detect(raw_lines, "^\\s*\\d+ \\|")]
+state_lines  <- raw_lines[str_detect(raw_lines, "^\\s*[A-Z]{2} \\|")]
+```
+
+Player lines start with a number. State lines start with two capital letters like MI or ON.
+
+### Extracting player number, name, and total points
+
+```{r}
+players <- tibble(
+  player_num = as.integer(str_extract(player_lines, "^\\s*\\d+")),
+  name = str_trim(str_extract(player_lines, "(?<=\\|).+?(?=\\|)")),
+  total_points = as.numeric(str_extract(player_lines, "(?<=\\|)\\d+\\.\\d(?=\\s*\\|)"))
+)
+```
+
+### Extracting player state and pre-rating
+
+```{r}
+states <- str_extract(state_lines, "(?<=^\\s{3})[A-Z]{2}")
+ratings <- as.numeric(str_extract(state_lines, "(?<=R:\\s)\\d+"))
+
+players <- players %>%
+  mutate(
+    state = states,
+    pre_rating = ratings
+  )
+```
+
+### Extracting opponent numbers from each round
+
+```{r}
+get_opponents <- function(line) {
+  parts <- str_split(line, "\\|")[[1]]
+  round_parts <- parts[4:length(parts)]
+  # Extract numbers from each round column
+  opp_list <- str_extract_all(round_parts, "\\d+")
+  # Flatten list into single numeric vector
+  opp_nums <- as.integer(unlist(opp_list))
+  opp_nums
+}
+
+opponents_list <- lapply(player_lines, get_opponents)
+```
+
+Each round lists the opponent’s player number.
+
+### Creating a rating lookup table
+
+```{r}
+rating_lookup <- players %>%
+  select(player_num, pre_rating)
+```
+
+### Calculate average opponent pre-rating
+
+```{r}
+avg_opponent_rating <- sapply(opponents_list, function(opp_nums) {
+  opp_ratings <- rating_lookup$pre_rating[
+    match(opp_nums, rating_lookup$player_num)
+  ]
+  mean(opp_ratings, na.rm = TRUE)
+})
+
+players$avg_opponent_rating <- round(avg_opponent_rating)
+```
+
+### Final clean dataset
+
+```{r}
+final_df <- players %>%
+  select(
+    Player_Name = name,
+    Player_State = state,
+    Total_Points = total_points,
+    Pre_Rating = pre_rating,
+    Avg_Opponent_Pre_Rating = avg_opponent_rating
+  )
+
+final_df
+```
+
+```{r}
+write_csv(final_df, "chess_tournament_clean.csv")
+```
+
+### Sources
+
+-   Chess Crosstable Explanation Video https://youtu.be/T5PXYl2FEUo
+-   FiveThirtyEight Elo Ratings https://fivethirtyeight.com/tag/elo-ratings/
