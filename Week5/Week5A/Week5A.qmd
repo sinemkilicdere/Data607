@@ -1,0 +1,117 @@
+---
+title: "Week5A"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# Week 5A Approach
+
+## 1. Introduction
+
+For this assignment, I am working with airline delay data.The table shows two airlines (Alaska and Am West) and their flight results across five cities. For each city, it shows how many flights were on time and how many were delayed.
+
+The goal of this assignment is to: • recreate this table as a CSV file, • read it into R, • clean and tidy the data, • compare the delay percentages, • and explain why overall results might look different from city by city results.
+
+## 2. Creating the Data File
+
+First, I will recreate the table as it in the image. I create a CSV file in wide format, meaning: • One column for Airline • One column for Status (on time or delayed) • One column for each city
+
+I also keep the blank airline cells like the original image. For example, the second row under Alaska does not repeat the airline name. I keep that blank because the assignment requires recreating the file in the same format. After creating the CSV file, I upload it to my public GitHub repository so it can be accessed.
+
+## 3. Reading and Cleaning the Data
+
+After reading the CSV file into R, I notice that some airline cells are empty.Those empty cells actually belong to the airline written above them. So I will fill in the missing airline names to make the dataset complete. This step makes the data easier to work with and prevents problems during analysis.
+
+## 4. Transforming the Data (Wide to Long)
+
+The original data is in wide format because each city is a separate column. For analysis, I will convert the dataset to long format. In the long format: • Each row represents one airline, one city, one status, and one count.
+
+## 5. Analysis Plan
+
+After cleaning and transforming the data, I will: 1. Compare overall delay percentages between the two airlines. 2. Compare delay percentages across the five cities. 3. Summarize what I observe in both comparisons. 4. Explain why the overall comparison might tell a different story than the city by city comparison.
+
+The main focus is on percentages, not counts, because percentages give a more fair comparison.
+
+## 6. Expected Approach
+
+It is possible that one airline looks better overall, but not better in every city. This can happen because the airlines may operate different numbers of flights in each city. When totals are combined, the results can look different than when each city is examined separately.
+
+# Code Base
+
+## 1. Load Libraries
+
+I used tidyverse because it includes dplyr and tidyr, which are helpful for cleaning and transforming data.
+```{r}
+library(tidyverse)
+```
+
+## 2. Read CSV from GitHub
+
+I read the dataset directly from my public GitHub repository using the raw file link. : https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week5/Week5A/airline_delays_wide.csv
+
+```{r}
+file_url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week5/Week5A/airline_delays_wide.csv"
+airline_data <- read_csv(file_url)
+airline_data
+```
+
+## 33. Fill Missing Airline Names
+The blank airline cells belong to the airline above them.
+I used fill() to copy the airline name downward.
+```{r}
+airline_data <- airline_data %>%
+  fill(Airline)
+airline_data
+```
+
+## 4. Transform Wide -> Long Format
+Right now, each city is a column.
+I converted it to long format so each row represents:
+Airline + Status + City + Count
+```{r}
+airline_long <- airline_data %>%
+  pivot_longer(
+    cols = c(`Los Angeles`, Phoenix, `San Diego`, `San Francisco`, Seattle),
+    names_to = "City",
+    values_to = "Count"
+  )
+airline_long
+```
+
+
+## 5. Overall Delay Percentage Comparison
+First, calculate totals per airline.
+```{r}
+overall_summary <- airline_long %>%
+  group_by(Airline, Status) %>%
+  summarise(Total = sum(Count), .groups = "drop") %>%
+  pivot_wider(names_from = Status, values_from = Total) %>%
+  mutate(
+    Total_Flights = `on time` + delayed,
+    Delay_Percentage = delayed / Total_Flights * 100
+  )
+overall_summary
+```
+
+## 6. City-by-City Delay Percentage Comparison
+Now calculate delay percentage per airline per city.
+
+```{r}
+city_summary <- airline_long %>%
+  group_by(Airline, City, Status) %>%
+  summarise(Total = sum(Count), .groups = "drop") %>%
+  pivot_wider(names_from = Status, values_from = Total) %>%
+  mutate(
+    Total_Flights = `on time` + delayed,
+    Delay_Percentage = delayed / Total_Flights * 100
+  )
+city_summary
+```
+
+## 7. Analysis
+Overall, AM WEST shows a lower overall delay percentage compared to ALASKA. This means that when combining all flights across all cities, that airline appears to perform better in terms of on time arrivals.
+
+However, when examining the delay percentages city by city, the results are different. In some cities, the airline that performed worse overall actually has a lower delay percentage.
+
+The difference between overall results and city by city results happens because the airlines operate different numbers of flights in each city. If one airline flies more often to cities with naturally higher delay counts, it can increase its overall delay percentage. This shows how combining data can sometimes give a different conclusion than looking at each group separately.
