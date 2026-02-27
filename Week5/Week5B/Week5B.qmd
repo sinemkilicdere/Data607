@@ -1,0 +1,209 @@
+---
+title: "Week5B"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# Week 5B Approach
+
+## 1. Introduction
+
+For this assignment, I am working with the chess tournament data from Project 1. The dataset includes each player’ rating, their opponents in each round, and their final total score. The goal of this assignment is to calculate each player’s expected score based on the rating difference between them and their opponents. Then I will compare the expected score to the actual score and decide which players overperformed and which players underperformed.
+
+## 2. Understanding the Elo Formula
+
+To calculate expected score, I will use the standard Elo expected score formula. This formula is used in chess tournement and is explained in the video. The formula calculates the probability that a player is expected to score against an opponent based on rating difference.
+
+Link: https://www.youtube.com/watch?v=AsYfbmp0To0
+
+If ratings are equal, expected score is 0.5. If a player is rated higher, expected score is greater than 0.5. If rated lower, expected score is less than 0.5.
+
+## 3. Data Preparation Plan
+
+From the tournament file, I will extract: 1. Player name 2. Player pre-rating 3. Opponents in each round 4. Actual total score
+
+Then for each match: 1. Identify opponent’s rating. 2. Calculate expected score for that round. 3. Repeat for all rounds. 4. Sum all expected scores to get total expected score.
+
+This will give me something like: 1. Expected score = 4.3 2. Actual score = 4.0 3. Difference = Actual – Expected
+
+## 4. Overperformance and Underperformance
+
+After calculating expected and actual scores, I will: 1. Calculate the difference between actual and expected score. 2. Sort players by this difference. 3. List: - Top 5 players who most overperformed. - Top 5 players who most underperformed.
+
+Overperformed means: Actual score is higher than expected score.
+
+Underperformed means: Actual score is lower than expected score.
+
+## 5. Final Analysis Plan
+
+In the final section, I will:
+
+1.  Present a table with expected score, actual score, and difference.
+
+2.  Highlight the top 5 overperformers.
+
+3.  Highlight the top 5 underperformers.
+
+4.  Briefly explain what this means.
+
+# Code Base
+
+## 1. Load Libraries
+```{r}
+library(tidyverse)
+library(stringr)
+```
+
+## 2. Read Tournament File
+```{r}
+file_path <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Project1/tournamentinfo.txt"
+raw_lines <- readLines(file_path)
+```
+
+## 3. Extract Player Information
+```{r}
+player_rows <- raw_lines[str_detect(raw_lines, "^\\s*\\d+\\s+\\|")]
+rating_rows <- raw_lines[str_detect(raw_lines, "R:")]
+```
+
+Extract basic player info:
+```{r}
+players <- player_rows %>%
+  str_split("\\|", simplify = TRUE) %>%
+  as.data.frame() %>%
+  select(1, 2, 3) %>%
+  setNames(c("Pair", "Name", "Total_Pts")) %>%
+  mutate(
+    Pair = as.integer(str_trim(Pair)),
+    Name = str_trim(Name),
+    Total_Pts = as.numeric(str_trim(Total_Pts))
+  )
+```
+** I used LLM to extract correct values below.
+Extract pre-ratings:
+```{r}
+ratings_df <- rating_rows %>%
+  str_extract("\\d+\\s+/\\s+R:\\s*\\d+") %>%
+  str_extract("\\d+$") %>%
+  as.numeric() %>%
+  as.data.frame()
+
+colnames(ratings_df) <- "Pre_Rating"
+players <- bind_cols(players, ratings_df)
+```
+
+## 4. Extract Opponents Per Round
+Extract opponent numbers:
+```{r}
+round_data <- player_rows %>%
+  str_extract_all("[WLD]\\s+\\d+") %>%
+  lapply(function(x) str_extract(x, "\\d+")) %>%
+  do.call(rbind, .) %>%
+  as.data.frame()
+
+colnames(round_data) <- paste0("Round_", 1:7)
+
+round_data <- round_data %>%
+  mutate(across(everything(), as.integer))
+```
+Bind rounds to players:
+```{r}
+players <- bind_cols(players, round_data)
+```
+
+## 6. Convert Rounds to Long Format
+This makes it easier to join opponent ratings.
+```{r}
+long_matches <- players %>%
+  pivot_longer(
+    cols = starts_with("Round_"),
+    names_to = "Round",
+    values_to = "Opponent"
+  )
+```
+
+Now each row is:One player, One round, One opponent
+
+## 7. Join Opponent Ratings
+Join opponent rating using Pair number.
+```{r}
+long_matches <- long_matches %>%
+  rename(Player_Rating = Pre_Rating) %>%
+  left_join(
+    players %>%
+      select(Pair, Pre_Rating) %>%
+      rename(Opponent = Pair,
+             Opponent_Rating = Pre_Rating),
+    by = "Opponent"
+  )
+
+long_matches <- long_matches %>%
+  filter(!is.na(Opponent_Rating))
+```
+Now each row has: Player rating, Opponent rating
+
+## 8. Elo Expected Score Formula
+
+Using standard Elo formula:
+
+E = 1 / (1 + 10^{(R_opponent - R_player)/400})
+
+From:
+The Elo Rating System for Chess and Beyond (YouTube reference)
+
+Calculate expected score per round:
+```{r}
+long_matches <- long_matches %>%
+  mutate(
+    Expected_Round = 1 / (1 + 10^((Opponent_Rating - Player_Rating) / 400))
+  )
+```
+
+## 9. Sum Expected Scores Per Player
+```{r}
+expected_scores <- long_matches %>%
+  group_by(Pair, Name, Total_Pts, Player_Rating) %>%
+  summarise(
+    Expected_Score = sum(Expected_Round, na.rm = TRUE),
+    .groups = "drop"
+  )
+```
+Expected score for entire tournament
+
+## 10. Calculate Difference
+```{r}
+results <- expected_scores %>%
+  mutate(
+    Difference = Total_Pts - Expected_Score
+  )
+```
+
+## 11. Top 5 Overperformers
+```{r}
+top_over <- results %>%
+  arrange(desc(Difference)) %>%
+  slice_head(n = 5)
+top_over
+```
+
+## 12. Top 5 Underperformers
+```{r}
+top_under <- results %>%
+  arrange(Difference) %>%
+  slice_head(n = 5)
+
+top_under
+```
+
+# Analysis
+
+Using the standard Elo expected score formula, I calculated each player’s expected score based on the rating difference between them and their opponents. I then compared this expected score to their actual total points from the tournament.
+
+Players with a positive difference performed better than expected. This means they scored more points than the Elo system predicted. Players with a negative difference underperformed, meaning they scored fewer points than expected based on rating.
+
+The top five overperformers are the players with the highest positive differences. These players either defeated stronger opponents or performed more consistently than predicted.
+
+The top five underperformers are the players with the largest negative differences. These players may have lost to lower-rated opponents or did not perform at the level their rating suggested.
+
+This analysis shows how Elo ratings can estimate performance expectations, and how actual tournament results can differ from statistical predictions.
