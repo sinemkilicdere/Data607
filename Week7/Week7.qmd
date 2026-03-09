@@ -1,0 +1,133 @@
+---
+title: "Week7"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Approach
+
+### Introduction
+
+For this assignment, My goal is to practice working with HTML and JSON data formats. These formats are mostly used when collecting data from the web, so understanding structure is important before learning web scraping and APIs. For this assignment, I selected three books on the subject of `entrepreneurship and business`. For each book, I saved some basic information such as the title, authors, publication year, publisher, and ISBN.
+
+After collecting this information, I created two files:
+
+-   `HTML file` that contains a table with the book information.
+-   `JSON file` that contains the same data using JSON structure
+
+Both files store exactly the same dataset but in different formats.
+
+### Data Selection
+
+The books I selected are related to *entrepreneurship and starting a business*, which is a topic I am interested in. I chose three books and made sure that at least one book has multiple authors, which is requiremenst of assignment.
+
+For each book, I recorded the following attributes:
+
+- Title\
+- Authors\
+- Publication Year\
+- Publisher\
+- ISBN
+
+These attributes were organized into a small dataset containing three books.
+
+### File Creation
+
+After that, I manually created two data files to store the dataset.
+
+The first file is an *HTML file (`books.html`)* that contains a table with rows and columns including the book information.
+
+The second file is a *JSON file (`books.json`)* that stores the same book data using JSON structure, where each book is represented as an object inside a list.
+
+Both files were uploaded to GitHub so they can be accessed publicly.
+
+HTML file:\
+https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week7/books.html
+
+JSON file:\
+https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week7/books.json
+
+### Plan for Analysis
+
+After creating the HTML and JSON files, I will use **R** to load both datasets.First, I will read the HTML table using an R package that can extract tables from HTML documents. Next, I will read the JSON file and convert the JSON structure into an R data frame.
+
+Finally, I will compare the two data frames to determine whether they contain the same information. This will confirm that both files represent the same dataset even though they are stored in different formats.
+
+### Book Sources
+
+Books were collected from Google Books:
+
+Entrepreneurship and Small Business  
+https://www.google.com/books/edition/Entrepreneurship_and_Small_Business/QG1NEAAAQBAJ
+
+Diversity and Entrepreneurship  
+https://www.google.com/books/edition/Diversity_and_Entrepreneurship/cD_tAAAAMAAJ
+
+Start Your Own Business  
+https://www.google.com/books/edition/Start_Your_Own_Business/bQpDEAAAQBAJ
+
+
+## Code Base
+
+In this section, I use R to load both the HTML and JSON files and convert them into data frames. Then I compare the two datasets to check if they are identical.
+
+```{r}
+library(rvest)
+library(jsonlite)
+library(dplyr)
+```
+
+First, I load the HTML file from GitHub and extract the table.
+```{r}
+html_url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week7/books.html"
+
+html_page <- read_html(html_url)
+html_table <- html_table(html_page)[[1]]
+
+html_table
+```
+
+Next, I load the JSON file from GitHub.
+```{r}
+json_url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week7/books.json"
+
+json_data <- fromJSON(json_url)
+json_table <- json_data$books
+
+json_table
+```
+
+I make both data frames use the same data types so they can be compared correctly
+```{r}
+html_table <- as.data.frame(html_table)
+json_table <- as.data.frame(json_table)
+
+html_table$Title <- as.character(html_table$Title)
+html_table$Authors <- as.character(html_table$Authors)
+html_table$Publication_Year <- as.numeric(html_table$Publication_Year)
+html_table$Publisher <- as.character(html_table$Publisher)
+html_table$ISBN <- as.character(html_table$ISBN)
+
+json_table$Title <- as.character(json_table$Title)
+json_table$Authors <- as.character(json_table$Authors)
+json_table$Publication_Year <- as.numeric(json_table$Publication_Year)
+json_table$Publisher <- as.character(json_table$Publisher)
+json_table$ISBN <- as.character(json_table$ISBN)
+```
+
+Comparing 2 datasets
+```{r}
+identical(html_table, json_table)
+```
+
+## Comparison Result
+
+After loading both the HTML and JSON files into R, I compared the two data frames using the `identical()` function.
+
+Before comparing them, I made sure that both datasets used the same structure and data types. Sometimes, numeric values or character values may not match exactly unless they are converted to the same type. After standardizing the data types, I used the `identical()` function to compare the two datasets. The result returned *TRUE*, which means both data frames contain the same information even they are in different format.
+
+## Conclusion
+
+I created two files containing the same book dataset: one an HTML table and another JSON format. Then I used R to load both files, convert them into data frames and compare them.
+This assignment helped me understand how different data formats can represent the same dataset and how R can be used to read and analyze these formats.
