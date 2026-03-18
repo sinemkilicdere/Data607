@@ -1,0 +1,528 @@
+---
+title: "Project 3 - Week 8"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# Approach
+
+## Introduction
+
+For this project, our goal is to answer the question: Which data science skills are most valued? Since this is an exploring project, there is no single correct answer. Instead, we will investigate patterns in available data to understand what the data suggest about demand in the data science job market.
+
+We selected a dataset of data-related job postings from Kaggle. The dataset contains information about job titles, categories, salaries, experience levels, company size, work setting and company location.
+
+We noticed that the dataset does not include a direct column listing specific technical skills such as Python or SQL. Because of this, we will analyze experience level requirements in job postings as an indicator of the level of expertise.
+
+## Data Source
+
+The dataset source is from Kaggle:
+
+https://www.kaggle.com/datasets/hummaamqaasim/jobs-in-data
+
+This dataset contains information about jobs in the data field, including roles such as Data Scientist, Data Analyst, Machine Learning Engineer, and other related positions.
+
+The dataset includes  also the following items:
+	•	work_year
+	•	job_title
+	•	job_category
+	•	salary_currency
+	•	salary
+	•	salary_in_usd
+	•	employee_residence
+	•	experience_level
+	•	employment_type
+	•	work_setting
+	•	company_location
+	•	company_size
+
+It provides structured information about data related jobs,also including the level of experience required and salary information.I believe these are useful for analysis.
+
+## Defining Our Measure of Demand
+
+The project question is which data science skills are most valued. However, because our dataset does not list technical skills, we will need to define an operational proxy for skill demand.
+
+In this project, we use experience level required by employers as a proxy for skill demand.
+
+For example:
+
+- Entry level jobs require basic knowledge of data tools and programming.
+- Mid level jobs often require stronger technical skills and practical experience.
+- Senior level jobs require advanced technical expertise and leadership abilities.
+
+## Data Acquisition and Storage
+
+The dataset was from Kaggle and downloaded as a CSV file. The data will be loaded into R. The dataset will be stored in a database using normalized tables. The data will be separated into logical components so that redundancy is reduced.
+
+The database structure will include tables like:
+	
+- A jobs table containing job related information such as job title, category and work year.
+- A company table containing company information such as location and company size.
+- Additional attributes such as salary and experience level will be stored in the jobs table.
+
+## Data Preparation and Cleaning
+
+All data preparation and transformations will be analyzed using R, and packages from the tidyverse.
+
+The data preparation process will include:
+	
+- Loading the dataset into R
+- Inspecting the dataset structure and variable types
+- Checking for missing values
+- Converting variables into appropriate formats
+
+## Exploratory Data Analysis
+
+After cleaning the data, we will perform data analysis to understand patterns in the dataset.
+
+The analysis will include:
+
+- Counting the number of jobs for each experience level
+- Examining the distribution of job categories
+- Calculating average salary by experience level
+- Visualizing these patterns using charts
+
+For example, we will create bar charts showing the number of job postings by experience level to identify which levels appear most frequently.
+
+## Visualization Plan
+
+For the visualization for level of seniority in the job market will be shown by
+
+- Bar charts showing the frequency of job postings by experience level
+- Charts comparing salaries across experience levels
+- Visual summaries of job categories within the dataset: 
+- Pie chart dictating the distribution of job demand by required experience level between Entry-Level, Mid-Level , Senior and Executive
+- Distribution of Data Science fields based on Experience Level: As an example, Machine Learning & AI posting often lean toward senior level roles. 
+- “Lollipop” chart in order to see the demand for each career skill in each point of a data scientist professional career. 
+
+
+## Exploratory Data Analysis: 
+
+Data mentions job requests from all over the world with the majority in America. For the purpose of our analysis on data science skills, we will focus on the jobs offered in the United States. 
+In addition to proxy data,  we will use and collect the most effective skills in each subcategory provided in our Kaggle dataset. The most common skills requested in said field will be to use a supplement for analysis. For example BI Development requires statistical analysis, data mining and creation of dashboards using programs such as Tableau. 
+
+## Collaboration Tools
+
+We plan to use:
+
+- GitHub for storing the project code and dataset
+- Shared documents for writing the project approach and notes
+- RStudio for performing the data analysis and visualization
+- Google slides to present graphs for visual analysis 
+
+## Expected Findings
+
+Through this analysis, we expect to identify patterns in the demand for different levels of experience in data-related jobs.
+
+For example, we may find that:
+
+- Mid-level and senior-level roles appear more frequently in job postings
+- Entry-level roles appear less often
+- Higher experience levels are associated with higher salaries
+
+These findings can provide insight into how experience and expertise are valued in the data science job market.
+
+# Code Base
+
+## Load Libraries
+We load the libraries. I use tidyverse for cleaning and analyzing the data, DBI and RSQLite for creating a relational database, and ggplot2 for visualizations.
+
+```{r}
+library(tidyverse)
+library(DBI)
+library(RSQLite)
+```
+
+## Load the Dataset
+We load the CSV file directly from GitHub using the raw link.
+```{r}
+data_url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/Week8-Project3/jobs_in_data.csv"
+
+jobs_raw <- read_csv(data_url)
+```
+
+A first look at the dataset
+```{r}
+head(jobs_raw)
+```
+
+## Inspect the Structure of the Data
+We check the structure and variable types to understand what kind of data we are working with.
+```{r}
+glimpse(jobs_raw)
+colnames(jobs_raw) #checking column names
+```
+
+## Check for Missing Values
+Before cleaning, we check if there are missing values in each column.
+```{r}
+colSums(is.na(jobs_raw))
+```
+
+## Understand the Experience Level Codes
+The dataset uses coded values for experience level, so we first check the unique values.
+```{r}
+unique(jobs_raw$experience_level)
+```
+These are:
+- EN = Entry-level
+- MI = Mid-level
+- SE = Senior-level
+- EX = Executive-level
+
+## Clean and Prepare the Data
+
+Now we clean the dataset and these steps next:
+
+- rename experience level values
+-	focus on jobs in the USA
+-	make some text values easier to read
+```{r}
+jobs_clean <- jobs_raw %>%
+  filter(company_location == "United States") %>%
+  mutate(
+    experience_level = recode(
+      experience_level,
+      "EN" = "Entry-Level",
+      "MI" = "Mid-Level",
+      "SE" = "Senior-Level",
+      "EX" = "Executive-Level"
+    ),
+    company_size = recode(
+      company_size,
+      "S" = "Small",
+      "M" = "Medium",
+      "L" = "Large"
+    )
+  )
+```
+ 
+checking clean data
+```{r}
+head(jobs_clean)
+```
+
+## Check the Number of U.S. Job PostingsW
+We count how many rows remain after filtering.
+```{r}
+nrow(jobs_clean)
+```
+
+## Check the Distribution of Experience Levels
+We count the number of jobs in each experience level.
+```{r}
+jobs_clean %>%
+  count(experience_level, sort = TRUE)
+```
+
+## Creating a Relational Database
+We store the data in a relational database using normalized tables.
+
+We will create:
+
+-	a company table
+-	a jobs table
+
+The jobs table will connect to the company table through a company_id.
+
+## Create the Company Table
+Since the dataset does not include company names, we define companies based on the combination of:
+
+-	company location
+-	company size
+-	work setting
+```{r}
+company_table <- jobs_clean %>%
+  distinct(company_location, company_size, work_setting) %>%
+  mutate(company_id = row_number()) %>%
+  select(company_id, everything())
+```
+
+## Create the Jobs Table
+
+We join the company table back to the jobs data so each job gets a company_id.
+```{r}
+jobs_table <- jobs_clean %>%
+  left_join(company_table, by = c("company_location", "company_size", "work_setting")) %>%
+  mutate(job_id = row_number()) %>%
+  select(
+    job_id,
+    work_year,
+    job_title,
+    job_category,
+    salary_currency,
+    salary,
+    salary_in_usd,
+    employee_residence,
+    experience_level,
+    employment_type,
+    company_id
+  )
+```
+
+preview both tables:
+```{r}
+head(company_table)
+head(jobs_table)
+```
+
+## Create the SQLite Database
+
+We create a SQLite database file and write both normalized tables into it.
+```{r}
+con <- dbConnect(SQLite(), "jobs_in_data.sqlite")
+
+dbWriteTable(con, "company", company_table, overwrite = TRUE)
+dbWriteTable(con, "jobs", jobs_table, overwrite = TRUE)
+dbListTables(con)
+
+dbReadTable(con, "company") %>% head()
+dbReadTable(con, "jobs") %>% head()
+
+
+dbDisconnect(con)
+```
+
+## Exploratory Data Analysis
+After cleaning and storing the data, we begin the exploratory analysis.
+
+### 1.Count the Number of Jobs by Experience Level
+
+We first count how many job postings belong to each experience level.
+```{r}
+experience_counts <- jobs_clean %>%
+  count(experience_level, sort = TRUE)
+
+experience_counts
+```
+#### Bar Chart: Frequency of Job Postings by Experience Level
+
+This bar chart shows which experience level appears most often.
+```{r}
+ggplot(experience_counts, aes(x = reorder(experience_level, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Frequency of U.S. Job Postings by Experience Level",
+    x = "Experience Level",
+    y = "Number of Job Postings"
+  )
+```
+
+### 2.Distribution of Job Categories
+Next, we examine which job categories appear the most.
+
+```{r}
+job_category_counts <- jobs_clean %>%
+  count(job_category, sort = TRUE)
+
+job_category_counts
+```
+
+#### Bar Chart: Top Job Categories
+```{r}
+job_category_counts %>%
+  slice_max(order_by = n, n = 10) %>%
+  ggplot(aes(x = reorder(job_category, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 10 Job Categories in U.S. Data Jobs",
+    x = "Job Category",
+    y = "Number of Job Postings"
+  )
+```
+
+### 3. Average Salary by Experience Level
+
+Now we calculate the average salary in U.S. dollars for each experience level.
+```{r}
+salary_by_experience <- jobs_clean %>%
+  group_by(experience_level) %>%
+  summarise(
+    average_salary_usd = mean(salary_in_usd, na.rm = TRUE)
+  ) %>%
+  arrange(desc(average_salary_usd))
+
+salary_by_experience
+```
+
+#### Bar Chart: Average Salary by Experience Level
+```{r}
+ggplot(salary_by_experience, aes(x = reorder(experience_level, average_salary_usd), y = average_salary_usd)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Average Salary by Experience Level",
+    x = "Experience Level",
+    y = "Average Salary in USD"
+  )
+```
+
+## Checking for Outliers
+
+Salary data often contains very high or very low values. These can affect the average, so we check for outliers.
+
+#### Boxplot of Salary by Experience Level
+```{r}
+library(scales)
+
+ggplot(jobs_clean, aes(x = experience_level, y = salary_in_usd)) +
+  geom_boxplot(fill = "lightblue") +
+  scale_y_continuous(labels = comma) +
+  labs(
+    title = "Salary Distribution by Experience Level",
+    x = "Experience Level",
+    y = "Salary in USD"
+  )
+```
+
+## Create a Salary Dataset Without Extreme Outliers
+
+To reduce the effect of extreme salaries, we use the IQR method.
+```{r}
+q1 <- quantile(jobs_clean$salary_in_usd, 0.25, na.rm = TRUE)
+q3 <- quantile(jobs_clean$salary_in_usd, 0.75, na.rm = TRUE)
+iqr_value <- q3 - q1
+
+lower_bound <- q1 - 1.5 * iqr_value
+upper_bound <- q3 + 1.5 * iqr_value
+
+#we keep only salaries within that range.
+jobs_no_outliers <- jobs_clean %>%
+  filter(salary_in_usd >= lower_bound, salary_in_usd <= upper_bound)
+```
+
+## Recalculate Average Salary Without Outliers
+```{r}
+salary_no_outliers <- jobs_no_outliers %>%
+  group_by(experience_level) %>%
+  summarise(
+    average_salary_usd = mean(salary_in_usd, na.rm = TRUE)
+  ) %>%
+  arrange(desc(average_salary_usd))
+
+salary_no_outliers
+```
+
+#### Bar Chart: Average Salary by Experience Level Without Outliers
+```{r}
+ggplot(salary_no_outliers, aes(x = reorder(experience_level, average_salary_usd), y = average_salary_usd)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Average Salary by Experience Level (Without Extreme Outliers)",
+    x = "Experience Level",
+    y = "Average Salary in USD"
+  )
+```
+
+#### Pie Chart of Experience Level Distribution
+
+We also create a pie chart to show how job demand is distributed across experience levels.
+```{r}
+ggplot(experience_counts, aes(x = "", y = n, fill = experience_level)) +
+  geom_col(width = 1) +
+  coord_polar("y", start = 0) +
+  labs(
+    title = "Distribution of Job Demand by Experience Level",
+    fill = "Experience Level"
+  ) +
+  theme(axis.title = element_blank(),
+        axis.text = element_blank(),
+        axis.ticks = element_blank())
+```
+
+## Distribution of Job Categories by Experience Level
+
+Next, we compare job categories across experience levels.
+```{r}
+category_experience <- jobs_clean %>%
+  count(job_category, experience_level, sort = TRUE)
+
+head(category_experience)
+```
+
+#### Stacked Bar Chart: Job Categories by Experience Level
+```{r}
+jobs_clean %>%
+  count(job_category, experience_level) %>%
+  group_by(job_category) %>%
+  summarise(total = sum(n)) %>%
+  slice_max(order_by = total, n = 8) %>%
+  left_join(
+    jobs_clean %>% count(job_category, experience_level),
+    by = "job_category"
+  ) %>%
+  ggplot(aes(x = reorder(job_category, total), y = n, fill = experience_level)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Job Categories by Experience Level",
+    x = "Job Category",
+    y = "Number of Job Postings",
+    fill = "Experience Level"
+  )
+```
+
+## Salary By Category
+
+We can organize the salary by category to see which fields are more in demand, and thus recruiters are willing to pay individuals higher.  
+
+```{r}
+ggplot(experience_counts, aes(x = reorder(experience_level, n), y = n)) +
+  geom_segment(aes(xend = reorder(experience_level, n), y = 0, yend = n)) +
+  geom_point(size = 3) +
+  coord_flip() +
+  labs(
+    title = "Lollipop Chart of Experience Level Demand",
+    x = "Experience Level",
+    y = "Number of Job Postings"
+  )
+```
+
+```{r}
+salary_by_category <- jobs_clean %>%
+  group_by(job_category) %>%
+  summarise(
+    average_salary_usd = mean(salary_in_usd, na.rm = TRUE)
+  ) %>%
+  arrange(desc(average_salary_usd))
+
+salary_by_category
+```
+
+```{r}
+ggplot(salary_by_category,aes(x = reorder(job_category, average_salary_usd), y = average_salary_usd)) +
+  geom_segment(aes(xend = reorder(job_category, average_salary_usd), y = 0, yend = average_salary_usd)) +
+  geom_point(size = 3) +
+  geom_text(aes(label = paste0("$",(round(average_salary_usd)))), 
+            hjust = 1.1,
+            size = 4,
+            color = "darkred") +
+  coord_flip() +
+  labs(
+    title = "Average Salary by Job Field",
+    x = "Job Field",
+    y = "Average Salary in USD($)"
+  )+
+theme_light()
+```
+
+As of the data shown, Machine Leaning/AI & Data Science Research tends to have the highest average salary. This is a reasonable conclusion due to the boom in Artificial Intelligence Research , so it is unclear if the amount of salary will increase. We have also seen that data quality is significantly lower which might be because it is usually considered and early career role. We need to note that since most of the openings are for senior positions the data is very skewed. 
+
+
+## Findings and Analysis
+
+After cleaning the data and creating the visualizations, we looked at the patterns in the dataset to better understand the experience level that companies are looking for in data related jobs.
+
+First, we counted how many job postings exist for each experience level. From the charts we created, we can see that mid-level and senior-level roles appear the most often in the dataset. Entry-level roles appear less frequently and executive level roles appear the least. This may suggest that many companies prefer hiring people who already have some experience in the field.
+
+We also looked at the salary differences between experience levels. The results show that salary tends to increase as the experience level increases. Entry level roles usually have lower salaries, while senior and executive roles have higher salaries. This is expected because more experienced workers usually have stronger technical knowledge and more responsibility.
+
+Another thing we looked at was the distribution of job categories. Some data related fields appear more often than others in the dataset. When we compare job categories with experience levels, we can see that some areas such as machine learning and AI related jobs appear more often in senior level positions. This may be because these roles usually require more advanced knowledge.
+
+Overall, the dataset suggests that experience level is an important factor in the data job market. Many employers seem to look for candidates who already have some experience working with data tools and technologies.
+
+Since the dataset does not include specific technical skills like Python or SQL, we used experience level as a proxy for skill demand. Even though this does not directly measure skills, it still helps us understand the level of expertise that employers expect in data related jobs
