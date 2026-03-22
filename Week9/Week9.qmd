@@ -1,0 +1,157 @@
+---
+title: "Week9"
+format: html
+editor: visual
+---
+
+# Approach (Week 9)
+
+## 1. Introduction
+
+For this assignment, I use one of the NY Times APIs to collect real data and analyze it. I chose the Most Popular API, which provides information about the most viewed, shared and emailed articles. I first created an app in the New York Times Developer portal and got an API key. Then I used that key to access the API. The goal of this assignment is to practice working with APIs, converting JSON data into a tidy format, and performing a simple analysis.
+
+## 2. Question
+
+The question is:
+
+*Which sections appear most often among the most viewed New York Times articles in the last 7 days?*
+
+## 3. API Selection
+
+I selected the Most Popular API.
+
+Endpoint used:
+	•	/viewed/7.json
+
+This endpoint returns the most viewed articles from the last 7 days, including information such as title, section, author, publication date, and URL.
+
+## 4. Request Details
+
+To make the API request, I used the base URL:
+
+https://api.nytimes.com/svc/mostpopular/v2/viewed/7.json
+
+This API requires an API key to authenticate the request. The key is passed as a query parameter named api-key.
+
+When the API key is not included, the API returns an error message. After including the API key, the request returns the article data in JSON format.
+
+## 5. Data Collection Plan
+
+First, I will use the httr package in R to send a request to the Most Popular API.
+
+Then, I will use the jsonlite package to parse the JSON response into an R object.
+
+From the returned JSON, I can already see that the response includes general information such as status and num_results, and that the main article information is stored inside the results field.
+
+## 6. Data Transformation Plan
+
+Next, I will extract the results field from the JSON response and convert it into a tidy data frame.
+
+After that, I will keep only the columns that are most useful for my analysis, such as:
+	•	title
+	•	section
+	•	byline
+	•	published date
+	•	source
+	•	URL
+
+## 7. Data Cleaning Notes
+
+The JSON response includes many fields, including nested fields such as media information, keywords, and other metadata. Since those fields are not necessary for answering my question, I will remove them and keep only the main variables needed for analysis.
+
+This will make the final data frame easier to read and work with.
+
+## 8. Analysis Plan
+
+After cleaning the data, I will count how many times each section appears in the dataset.
+
+This will help me identify which sections are most common among the most viewed New York Times articles in the last 7 days.
+
+## 9. Expected Outcome
+
+At the end, I expect to produce:
+	•	a clean and tidy data frame of NYT articles
+	•	a summary table showing article counts by section
+
+This will allow me to clearly answer my question.
+
+# Code Base
+
+First, I load the libraries.
+
+- The httr package is to make the API request.
+- The jsonlite package is to read and parse the JSON response.
+- The tidyverse package is to clean and organize the data.
+```{r}
+library(httr)
+library(jsonlite)
+library(tidyverse)
+
+api_key <- Sys.getenv("NYT_API_KEY") # read my API key from an environment variable
+```
+
+
+
+- I define the API URL for the Most Popular endpoint.
+```{r}
+url <- "https://api.nytimes.com/svc/mostpopular/v2/viewed/7.json"
+
+#I send the request to the API and include my API key as a query parameter.
+response <- GET(url, query = list(`api-key` = api_key))
+```
+This sends a GET request to the API. The API key is passed in the request so that the New York Times server can authenticate it.
+
+
+
+- Next, I convert the API response into text and then parse it from JSON into an R object.
+```{r}
+data_json <- content(response, as = "text", encoding = "UTF-8")
+data_list <- fromJSON(data_json, flatten = TRUE)
+```
+
+```{r}
+names(data_list)
+```
+
+
+
+- The main article data is stored inside the results field, so I extract that part next.
+```{r}
+articles <- as_tibble(data_list$results)
+```
+
+
+
+- Then, I keep only the columns that are useful for my analysis.
+```{r}
+nyt_clean <- articles %>%
+  select(
+    title,
+    abstract,
+    section,
+    byline,
+    published_date,
+    source,
+    url
+  )
+```
+
+
+
+- I count how many times each section appears in the data
+```{r}
+section_counts <- nyt_clean %>%
+  count(section, sort = TRUE)
+```
+
+
+
+- Finally, I display both the cleaned data frame and the summary table.
+```{r}
+nyt_clean
+section_counts
+```
+
+## Data Cleaning Keys
+
+The JSON response included many fields, including nested media information, keywords, and other metadata. For this assignment, I focused only on the results field because it contained the main article data. I then selected only the columns that were relevant to my question and excluded extra nested fields that were not necessary for the analysis.
