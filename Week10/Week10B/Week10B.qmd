@@ -1,0 +1,231 @@
+---
+title: "Week10B"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+## Approach
+
+For this assignment, I will use the Nobel Prize API to work with JSON data and answer 4 questions using Nobel Prize information.
+
+The main goal of this assignment is to practice working with JSON from an API, then turning that data into tidy data frames that can be explored.
+
+### Retrieve the JSON data from the Nobel Prize API
+
+First, I will connect to the Nobel Prize API directly from R instead of downloading a file. I plan to use both of these endpoints:
+
+- Nobel Prize data
+- Laureate data
+
+### Load the JSON data into R
+
+Next, I will use R packages for JSON and tidy data work. My plan is to load the API response into R, inspect the structure and identify which parts of the JSON need to be extracted.
+
+API JSON usually comes in nested format, I expect that some fields may need extra cleaning or unnesting before analysis. 
+
+### Transform the JSON into tidy data frames
+
+After loading the JSON data, I will convert the important parts into tidy data frames. That way each variable should have its own column and each observation should have its own row.
+
+For example:
+
+- select useful fields
+- unnest nested columns
+- clean text fields
+-	separate prize-level and laureate-level information
+-	join data frames when needed
+
+Not only retrieving JSON, but also transforming it into tidy data frames.
+
+### 4 data driven questions
+
+After the data is cleaned, I will create four questions that can be answered from the Nobel Prize data.
+
+one question will go beyond a basic count and will require filtering, joining, or comparing multiple fields.
+
+### Answer each question with code and results
+
+For each of the four questions, I will include:
+
+- the question
+- the R code used to answer it
+- the result
+
+### Data Source
+
+Nobel Prize API:
+
+https://api.nobelprize.org/2.1/nobelPrizes
+
+https://api.nobelprize.org/2.1/laureates
+
+
+## Code Base
+
+In this section, I uretrieve JSON data directly from the Nobel Prize API, turn it into tidy data frames and answer four questions from the data. The Nobel Prize Developer Zone says the API is in JSON format, includes endpoints such as nobelPrizes and laureates.
+
+```{r}
+library(jsonlite)
+library(dplyr)
+library(tidyr)
+library(purrr)
+library(stringr)
+library(ggplot2)
+```
+
+I define the two API links and read the JSON data into R.
+
+```{r}
+laureates_url <- "https://api.nobelprize.org/2.1/laureates?limit=1000"
+prizes_url <- "https://api.nobelprize.org/2.1/nobelPrizes?limit=1000"
+
+laureates_json <- fromJSON(laureates_url, flatten = TRUE)
+prizes_json <- fromJSON(prizes_url, flatten = TRUE)
+```
+
+I convert the JSON objects into data frames.
+
+```{r}
+laureates_raw <- laureates_json$laureates
+prizes_raw <- prizes_json$nobelPrizes
+```
+
+I create a tidy laureates table with organization information.
+
+```{r}
+laureates_df <- laureates_raw %>%
+  transmute(
+    laureate_id = id,
+    known_name = coalesce(fullName.en, orgName.en),
+    gender = gender,
+    birth_country = birth.place.country.en
+  )
+```
+
+I create another table that expands the prizes each laureate received.
+Here I used LLM to get some help and run functions correctly.
+
+```{r}
+laureate_prizes_df <- laureates_raw %>%
+  select(id, fullName.en, orgName.en, gender, nobelPrizes) %>%
+  unnest(nobelPrizes) %>%
+  transmute(
+    laureate_id = id,
+    known_name = coalesce(fullName.en, orgName.en),
+    gender = gender,
+    award_year = as.integer(awardYear),
+    category = category.en
+  )
+```
+
+I also create a prize-level table from the nobel Prizes endpoint.
+```{r}
+prizes_df <- prizes_raw %>%
+  transmute(
+    award_year = as.integer(awardYear),
+    category = category.en
+  )
+```
+
+### Question 1: Which Nobel Prize categories have been awarded the most times?
+
+This question looks at how often each category appears in the prize data.
+
+```{r}
+q1_table <- prizes_df %>%
+  count(category, sort = TRUE)
+
+ggplot(q1_table, aes(x = reorder(category, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Number of Nobel Prizes by Category",
+    x = "Category",
+    y = "Number of Awards"
+  )
+```
+
+
+### Question 2: Which countries have produced the most Nobel laureates by place of birth?
+
+This question uses the laureates table and counts birth countries.
+
+```{r}
+q2_table <- laureates_df %>%
+  filter(!is.na(birth_country), birth_country != "") %>%
+  count(birth_country, sort = TRUE) %>%
+  slice_head(n = 10)
+
+q2_table
+```
+
+### Question 3: Which laureates have won more than one Nobel Prize?
+
+This question goes beyond just counting categories because it groups by laureate and compares how many prizes each person or organization received.The table lists laureates who have received more than one Nobel Prize.
+
+```{r}
+q3_table <- laureate_prizes_df %>%
+  count(known_name, sort = TRUE) %>%
+  filter(n > 1)
+
+q3_table
+```
+
+### Question 4: Which country lost the most Nobel laureates, meaning they were born there but awarded while affiliated with an organization in another country?
+
+This question is the more advanced one for the assignment because it requires joining, unnesting, filtering and comparing different fields across the data.I expand the affiliation information from the laureates prize records.
+
+```{r}
+affiliation_df <- laureates_raw %>%
+  select(id, fullName.en, orgName.en, nobelPrizes) %>%
+  unnest(nobelPrizes) %>%
+  unnest(affiliations) %>%
+  transmute(
+    laureate_id = id,
+    known_name = coalesce(fullName.en, orgName.en),
+    award_year = as.integer(awardYear),
+    category = category.en,
+    affiliation_name = name.en,
+    affiliation_city = city.en,
+    affiliation_country = country.en
+  )
+
+affiliation_df
+```
+
+Then I join birth country from the laureates table and compare it to the affiliation country.
+
+```{r}
+q4_table <- affiliation_df %>%
+  left_join(
+    laureates_df %>% select(laureate_id, known_name, birth_country),
+    by = c("laureate_id", "known_name")
+  ) %>%
+  filter(
+    !is.na(birth_country), birth_country != "",
+    !is.na(affiliation_country), affiliation_country != "",
+    birth_country != affiliation_country
+  ) %>%
+  count(birth_country, sort = TRUE) %>%
+  slice_head(n = 10)
+
+q4_table
+```
+
+A plot for this comparison.
+
+```{r}
+ggplot(q4_table, aes(x = reorder(birth_country, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Countries Losing Laureates to Other Award Affiliations",
+    x = "Birth Country",
+    y = "Number of Laureates Awarded Elsewhere"
+  )
+```
+
+### Conclusion
+
+I used the Nobel Prize API JSON data directly from the public endpoints, then transformed the nested JSON into tidy data frames using unnest(), transmute(), count() and left_join(). The Nobel Prize Developer Zone states that the data is available through the laureates and nobelPrizes endpoints and is updated regularly.
+
