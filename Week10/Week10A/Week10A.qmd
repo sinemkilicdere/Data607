@@ -1,0 +1,200 @@
+---
+title: "Week10A"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Approach
+
+For this assignment, my plan is to follow the example from **Chapter 2** of *Text Mining with R: A Tidy Approach* and reproduce the sentiment analysis process in R using a Quarto file.
+
+### Step 1: Reproduce the base example
+
+First, I will recreate the main sentiment analysis example from Chapter 2. I will use the same general idea shown in the chapter, which is to take a text, turn it into a tidy format, and then connect the words to a sentiment lexicon.
+
+To do this, I will:
+
+- load the needed R packages
+- bring in the original text data used for the example
+- break the text into individual words
+- remove words that are not useful for sentiment analysis
+- join the words with a sentiment lexicon
+- summarize the sentiment results
+- create a simple visual to show the sentiment pattern
+
+This part is important because the assignment requires to reproduce the original example code.
+
+### Step 2: Cite the source
+
+I will include a citation to *Text Mining with R: A Tidy Approach* by Julia Silge and David Robinson, and I will state that the reproduced example comes from Chapter 2 of the book website.
+
+### Step 3: Extend the analysis with a different text corpus
+
+After reproducing the original example, I will extend the analysis by using a different text corpus. Instead of only using the text from the original example, I will choose another text source and run the same type of sentiment analysis on it.
+
+My goal here is to show that the sentiment results can change depending on the kind of text being analyzed.
+
+### Step 4: Add one more sentiment lexicon
+
+Next, I will add one additional sentiment lexicon. The original chapter uses sentiment lexicons for text mining, so in my extension I will compare results by using another lexicon as well. This will help me see if the sentiment results stay similar or change when a different lexicon is used.
+
+### Step 5: Compare the results
+
+At the end, I will explain how my extended analysis differs from the original example. I focus on simple comparison points such as:
+
+- if the second text looks more positive or more negative
+- if the additional lexicon gives similar or different results
+- which words seem to drive the sentiment most strongly
+
+Overall, my approach is to first reproduce the Chapter 2 example correctly, and then extend it in a simple way that still meets all assignment requirements.
+
+## Code Base
+
+I reproduce a sentiment analysis example from Chapter 2 of *Text Mining with R: A Tidy Approach*, and then I extend it with a different text corpus and an additional sentiment lexicon.
+
+```{r}
+library(tidyverse)
+library(tidytext)
+library(janeaustenr)
+library(gutenbergr)
+library(textdata)
+```
+
+### Reproducing the base example
+
+First, I use the janeaustenr package to get the text of Emma. Then I convert the text into tidy format by putting one word in each row.
+
+```{r}
+emma_words <- austen_books() %>%
+  filter(book == "Emma") %>%
+  mutate(line_number = row_number()) %>%
+  unnest_tokens(word, text)
+
+head(emma_words)
+```
+
+Next, I use the bing sentiment lexicon. This lexicon classifies words as either positive or negative.
+
+```{r}
+bing_lexicon <- get_sentiments("bing")
+
+head(bing_lexicon)
+```
+
+I join the words from Emma with the bing lexicon to keep the words that have sentiment.
+
+```{r}
+emma_sentiment <- emma_words %>%
+  inner_join(bing_lexicon, by = "word")
+
+head(emma_sentiment)
+```
+
+I count how many positive and negative words appear.
+
+```{r}
+emma_sentiment_counts <- emma_sentiment %>%
+  count(sentiment)
+
+emma_sentiment_counts
+```
+
+To visualize the result, I create a bar chart of positive and negative word counts.
+
+```{r}
+ggplot(emma_sentiment_counts, aes(x = sentiment, y = n, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  labs(
+    title = "Sentiment Counts in Emma Using the Bing Lexicon",
+    x = "Sentiment",
+    y = "Word Count"
+  )
+```
+
+### Extending the analysis with a different text corpus
+
+For the extension, I use a different text corpus. I choose The Time Machine from Project Gutenberg through the gutenbergr package.
+
+```{r}
+time_machine <- gutenberg_download(35)
+
+head(time_machine)
+```
+
+I convert this new text into tidy format.
+
+```{r}
+time_machine_words <- time_machine %>%
+  mutate(line_number = row_number()) %>%
+  unnest_tokens(word, text)
+
+head(time_machine_words)
+```
+
+### Adding an additional sentiment lexicon
+
+For the second part of the extension, I add the AFINN lexicon. Unlike bing, AFINN gives words numeric sentiment scores.
+
+```{r}
+afinn_lexicon <- get_sentiments("afinn")
+
+head(afinn_lexicon)
+```
+
+Now I join the words from The Time Machine with the AFINN lexicon.
+
+```{r}
+time_machine_sentiment <- time_machine_words %>%
+  inner_join(afinn_lexicon, by = "word")
+
+head(time_machine_sentiment)
+```
+
+Then I calculate the total sentiment score for this text.
+
+```{r}
+time_machine_score <- time_machine_sentiment %>%
+  summarize(total_sentiment = sum(value))
+
+time_machine_score
+```
+
+I check the words with the strongest positive and negative values.
+
+```{r}
+time_machine_top_words <- time_machine_sentiment %>%
+  count(word, value, sort = TRUE)
+
+head(time_machine_top_words, 10)
+```
+
+### Comparing the results
+
+The original example used Emma with the bing lexicon, which gives positive and negative categories. In the extension, I used The Time Machine with the AFINN lexicon, which gives numeric sentiment scores. This means the two analyses are slightly different. The first one shows how many positive and negative words appear, and the second one shows an overall sentiment score based on weighted word values.
+
+## Comparison - Conclusion
+
+I analyzed the sentiment of *Emma* using the bing lexicon. The results showed how many words were positive and how many were negative.
+
+In the extended analysis, I used a different text, *The Time Machine*, and applied the AFINN lexicon. Instead of just positive or negative labels, AFINN provides numeric scores. This allowed me to calculate an overall sentiment score for the text.
+
+The results are different in two main ways. First, the type of text changes the sentiment because different books use different language and tone. Second, the lexicon changes the outcome because bing uses categories, while AFINN uses numeric values. This means the interpretation of sentiment is more detailed in the second case.
+
+Overall, this shows that sentiment analysis results depend both on the text corpus and the lexicon used.
+
+## References
+
+Silge, J., & Robinson, D. (2017). *Text Mining with R: A Tidy Approach*. O’Reilly Media.
+
+Chapter 2: “Sentiment Analysis with Tidy Data.”  
+Retrieved from: https://www.tidytextmining.com/sentiment
+
+The original sentiment analysis example code reproduced in this assignment follows the example provided in Chapter 2 of the tidytext online book.
+
+R packages used in this assignment:
+
+- tidytext (for sentiment lexicons: bing and AFINN using get_sentiments())
+- janeaustenr (for the Emma text dataset)
+- gutenbergr (for Project Gutenberg book text)
+- textdata (required to download and use the AFINN lexicon)
