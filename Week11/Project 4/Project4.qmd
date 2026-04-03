@@ -1,0 +1,230 @@
+---
+title: "Project 4"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Approach
+
+### Problem Overview
+
+The goal of this project is to classify documents as spam or ham (non-spam) using a labeled dataset. This means building a model that can learn from existing emails and then predict if a new email is spam or not.
+
+### Data Source
+
+For this project, I use the Apache SpamAssassin Public Corpus, which contains real email messages already separated into spam and non-spam categories.
+
+I downloaded two parts of the dataset:
+
+-	easy_ham for normal emails
+-	spam for spam emails
+
+The original dataset stores each email as a separate text file.
+
+### Data Preparation
+
+Because the original dataset contains many separate email files, I created a smaller subset for this project by selecting 100 ham emails and 100 spam emails. Then I combined these emails into one CSV file with two columns: one column for the label and one column for the email text.
+
+
+```{r}
+#| eval: false
+ham_path <- "/Users/sinemkilicderemoschos/Downloads/easy_ham"
+spam_path <- "/Users/sinemkilicderemoschos/Downloads/spam"
+
+ham_files <- list.files(ham_path, full.names = TRUE)
+spam_files <- list.files(spam_path, full.names = TRUE)
+
+ham_sample <- ham_files[1:100]
+spam_sample <- spam_files[1:100]
+
+ham_texts <- sapply(ham_sample, read_file)
+spam_texts <- sapply(spam_sample, read_file)
+
+emails <- data.frame(
+  label = c(rep("ham", length(ham_texts)), rep("spam", length(spam_texts))),
+  text = c(ham_texts, spam_texts),
+  stringsAsFactors = FALSE
+)
+
+write.csv(emails, "project4_emails.csv", row.names = FALSE)
+```
+
+This step makes the project easier to manage and more reproducible in R.
+
+After that, I clean the text data by:
+
+-	converting text to lowercase
+-	removing punctuation
+-	removing numbers
+-	removing common stopwords
+-	removing extra whitespace
+
+### Training and Testing Split
+
+After preparing the data, I will divide it into:
+
+-	a training dataset to build the model
+-	a testing dataset to evaluate the model
+
+This allows me to test how well the model performs on unseen documents.
+
+### Model Selection
+
+For classification, I will use a Naive Bayes model. This model is simple and mostly used for text classification problems like spam detection. It works by calculating probabilities of words belonging to spam or ham.
+
+### Evaluation
+
+Finally, I will use the trained model to predict the class of emails in the test dataset. I will compare predicted results with actual labels to evaluate performance. In addition, I can also test the model on a few new email examples outside the training dataset to demonstrate how the model classifies completely unseen documents.
+
+
+## Code Base
+
+In this section, I load the prepared email dataset from GitHub, clean the text, split the data into training and testing sets, train a Naive Bayes model, and then use the model to classify emails as spam or ham.
+
+```{r message=FALSE, warning=FALSE}
+library(readr)
+library(tm)
+library(e1071)
+library(caret)
+```
+
+### Read the Dataset
+
+I read the dataset from GitHub. This dataset contains 200 emails and two columns: one for the label and one for the email text.
+
+```{r}
+emails <- read_csv(
+  "https://github.com/sinemkilicdere/Data607/raw/refs/heads/main/Week11/Project%204/project4_emails.csv",
+  show_col_types = FALSE
+)
+
+head(emails)
+```
+
+### Prepare the Text and Labels
+
+I clean the text encoding and convert the label column into a factor for classification.
+
+```{r}
+emails$text <- sapply(emails$text, function(x) {
+  x <- enc2utf8(x)
+  x <- iconv(x, from = "UTF-8", to = "ASCII", sub = " ")
+  ifelse(is.na(x), "", x)
+})
+
+emails$label <- as.factor(emails$label)
+
+table(emails$label)
+```
+
+### Split the Data into Training and Testing Data
+
+I use 80% of the data for training and 20% for testing.
+
+```{r}
+set.seed(123)
+
+train_index <- createDataPartition(emails$label, p = 0.8, list = FALSE)
+
+train_data <- emails[train_index, ]
+test_data  <- emails[-train_index, ]
+
+dim(train_data)
+dim(test_data)
+```
+
+### Create and Clean the Training Corpus
+
+I create text corpora for the training and testing data. Then I clean the text by making it lowercase, removing punctuation, numbers, stopwords, and extra spaces.
+
+```{r message=FALSE, warning=FALSE}
+clean_corpus <- function(text_vector) {
+  corpus <- VCorpus(VectorSource(text_vector))
+  corpus <- tm_map(corpus, content_transformer(tolower))
+  corpus <- tm_map(corpus, removePunctuation)
+  corpus <- tm_map(corpus, removeNumbers)
+  corpus <- tm_map(corpus, removeWords, stopwords("english"))
+  corpus <- tm_map(corpus, stripWhitespace)
+  return(corpus)
+}
+
+train_corpus <- clean_corpus(train_data$text)
+test_corpus  <- clean_corpus(test_data$text)
+```
+
+### Build the Document Term Matrix
+
+I convert the cleaned text into document-term matrices so the model can work with word frequencies.
+
+```{r message=FALSE, warning=FALSE}
+train_dtm <- DocumentTermMatrix(train_corpus)
+test_dtm <- DocumentTermMatrix(test_corpus, control = list(dictionary = Terms(train_dtm)))
+```
+
+### Convert Word Counts to Yes/No Values
+
+For Naive Bayes, I convert the word counts into binary values showing whether a word appears or not.
+
+```{r}
+convert_counts <- function(x) {
+  factor(ifelse(x > 0, "Yes", "No"), levels = c("No", "Yes"))
+}
+
+train_dtm_binary <- apply(as.matrix(train_dtm), 2, convert_counts)
+test_dtm_binary  <- apply(as.matrix(test_dtm), 2, convert_counts)
+```
+
+### Train the Naive Bayes Model
+
+I train the Naive Bayes classifier using the training data.
+
+```{r}
+classifier <- naiveBayes(train_dtm_binary, train_data$label)
+```
+
+### Predict the Test Emails
+
+I use the model to predict the labels for the test emails.
+
+```{r}
+predictions <- predict(classifier, test_dtm_binary)
+
+head(predictions)
+```
+
+### Evaluate Model Performance
+
+I compare the predicted labels with the real labels using a confusion matrix.
+
+```{r}
+confusionMatrix(predictions, test_data$label)
+```
+
+### Test the Model on New Email Examples
+
+I test the model on a few completely new email examples to see how it classifies unseen documents.
+
+```{r message=FALSE, warning=FALSE}
+new_emails <- c(
+  "Congratulations! You have won a free voucher. Click here to claim.",
+  "Hi, just checking if we are still meeting tomorrow.",
+  "Limited time offer! Get cash fast with no credit.",
+)
+
+new_emails <- sapply(new_emails, function(x) {
+  x <- enc2utf8(x)
+  x <- iconv(x, from = "UTF-8", to = "ASCII", sub = " ")
+  ifelse(is.na(x), "", x)
+})
+
+new_corpus <- clean_corpus(new_emails)
+new_dtm <- DocumentTermMatrix(new_corpus, control = list(dictionary = Terms(train_dtm)))
+new_dtm_binary <- apply(as.matrix(new_dtm), 2, convert_counts)
+
+data.frame(
+  email = new_emails,
+  predicted_label = predict(classifier, new_dtm_binary)
+)
+```
+
