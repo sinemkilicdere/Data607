@@ -1,0 +1,249 @@
+---
+title: "Week 11"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+## Approach
+
+### Problem Overview
+
+In this assignment, I will build a **personalized recommendation system** using the same movie survey data from the Global Baseline Estimate assignment.
+
+The earlier model was not personalized because it gave general predictions based on overall patterns in the data. In this assignment, the goal is different. Here, I need to recommend movies in a way that depends on the specific user, so that different users can receive different recommendations.
+
+### Data
+
+I will use the same **MovieRatings** survey dataset. Each row represents one user and each movie has its own rating column. Some ratings are missing because not every user rated every movie.
+
+This kind of data works well for recommender systems because it shows which users liked or did not like certain movies and it also gives enough structure to compare users with each other.
+
+### Recommendation Method
+
+For this assignment, I will use **user-to-user collaborative filtering**. I chose this method because it is a personalized recommendation approach. The main idea is to compare users based on the ratings. If two users have similar rating behavior, then movies liked by one of them may also be good recommendations for the other one. So instead of making the same recommendation for everyone, this method uses similar users to make more personal suggestions.
+
+### How I Plan to Build the Model
+
+First, I will clean and reshape the movie ratings data into a format that is easier to work with in R.
+
+Then I will create a **user-item rating matrix**, where:
+
+- rows represent users
+- columns represent movies
+- cells contain the rating values
+
+After that, I will apply a **user-to-user collaborative filtering** method. This means I will measure similarity between users based on the movies they both rated. Then I will use those similarities to help predict ratings for movies a user has not rated yet.
+
+### What the Recommender Will Output
+
+The recommender will produce **predicted ratings** for movies a user has not already rated.
+
+Then, based on those predicted ratings, I will generate a **ranked recommendation list** for each user. In other words, the system will identify which unseen movies are most likely to be liked by that specific user.
+
+### Evaluation Plan
+
+To evaluate the recommender, I will use a **hold-out approach**.
+
+This means I will split the data into:
+
+- a training set, which is used to build the recommender
+- a test set, which is used to check how well the model predicts ratings that were not used during training
+
+Then I will compare the predicted ratings to the actual ratings in the test data.
+
+For performance evaluation, I will use an appropriate prediction accuracy measure such as **RMSE** or **MAE**. This shows how close the predicted ratings are to the real ratings.
+
+### Tools
+
+I may use an existing recommender package in R rather than building the full algorithm completely from scratch. This is allowed by the assignment, and it will let me focus on the recommendation method, the output, and the evaluation.
+
+### Final Deliverable
+
+My submission will include:
+
+- the code used to prepare the data and build the recommender
+- the recommendation output produced by the model
+- a brief explanation of how the personalized recommender was built
+- a brief explanation of how the model was evaluated
+
+This way will contain a personalized algorithm, recommendation results, model evaluation and explanation.
+
+
+## Code Base
+
+### Load Packages
+
+```{r}
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(recommenderlab)
+library(knitr)
+```
+
+### Read the Data
+
+I use the same Excel file from the earlier recommender assignment.
+
+```{r}
+file_url <- "https://github.com/sinemkilicdere/Data607/raw/refs/heads/main/Week11/Personalized%20Recommender/MovieRatings.xlsx"
+
+temp_file <- tempfile(fileext = ".xlsx")
+download.file(file_url, destfile = temp_file, mode = "wb")
+
+movie_ratings <- read_excel(temp_file, sheet = "MovieRatings")
+
+movie_ratings
+```
+
+### Prepare the Ratings Matrix
+
+The first column is the user name, and the remaining columns are movie ratings.
+
+```{r}
+ratings_df <- movie_ratings
+
+user_names <- ratings_df$Critic
+
+ratings_matrix <- as.matrix(ratings_df[ , -1])
+rownames(ratings_matrix) <- user_names
+
+ratings_matrix
+```
+
+### Convert to Recommender Format
+
+The recommenderlab package uses a special rating matrix format.
+
+```{r}
+rating_matrix <- as(ratings_matrix, "realRatingMatrix")
+
+rating_matrix
+```
+
+### Build a Personalized Recommender
+
+For this assignment, I use user-to-user collaborative filtering, which is called "UBCF" in recommenderlab.
+
+```{r}
+set.seed(123)
+
+ubcf_model <- Recommender(
+  data = rating_matrix,
+  method = "UBCF",
+  parameter = list(method = "Cosine", nn = 3)
+)
+
+ubcf_model
+```
+
+
+### Create Recommendation Output
+
+Here I generate top 3 movie recommendations for each user. This gives a personalized ranked list.
+
+```{r}
+top_recommendations <- predict(
+  object = ubcf_model,
+  newdata = rating_matrix,
+  n = 3,
+  type = "topNList"
+)
+
+top_recommendations_list <- as(top_recommendations, "list")
+
+top_recommendations_df <- stack(top_recommendations_list)
+colnames(top_recommendations_df) <- c("Recommended_Movie", "Critic")
+
+top_recommendations_df <- top_recommendations_df %>%
+  group_by(Critic) %>%
+  mutate(Rank = row_number()) %>%
+  select(Critic, Rank, Recommended_Movie)
+
+kable(top_recommendations_df)
+```
+
+### Predict Ratings
+
+I also create predicted ratings for movies users have not rated yet.
+
+```{r}
+predicted_ratings <- predict(
+  object = ubcf_model,
+  newdata = rating_matrix,
+  type = "ratings"
+)
+
+predicted_ratings_matrix <- as(predicted_ratings, "matrix")
+
+round(predicted_ratings_matrix, 2)
+```
+
+### Evaluate the Recommender
+
+To evaluate the model, I use a hold-out method. I split the data into training and test sets, then compare predicted ratings with actual ratings.
+
+```{r}
+set.seed(123)
+
+scheme <- evaluationScheme(
+  data = rating_matrix,
+  method = "split",
+  train = 0.8,
+  given = -1
+)
+
+train_set <- getData(scheme, "train")
+known_set <- getData(scheme, "known")
+unknown_set <- getData(scheme, "unknown")
+```
+
+### Train the Model on the Training Data
+
+At this step, I train the recommender using only the training data. The model can learn user rating patterns from one part of the dataset first, instead of seeing everything at once. I still use user 2 user collaborative filtering, where the model looks for users with similar rating behavior.
+
+```{r}
+ubcf_train_model <- Recommender(
+  data = train_set,
+  method = "UBCF",
+  parameter = list(method = "Cosine", nn = 3)
+)
+```
+
+### Make Predictions on the Test Data
+
+To make rating predictions on the test portion of the data, the model uses the known ratings in the test set to estimate the ratings for movies that were left out. This helps me see how well the recommender can predict values it did not directly train on.
+
+```{r}
+test_predictions <- predict(
+  object = ubcf_train_model,
+  newdata = known_set,
+  type = "ratings"
+)
+```
+
+### Measure Accuracy
+
+I compare the predicted ratings to the real ratings from the hold out data. I use RMSE, MSE, and MAE because these are accuracy measures for rating prediction. They help show how close the recommender’s predicted values are to the actual values. Smaller error values mean the model is doing a better job.\
+
+```{r}
+accuracy_results <- calcPredictionAccuracy(
+  x = test_predictions,
+  data = unknown_set
+)
+
+accuracy_results
+```
+
+
+### Brief Explanation
+
+This model was built using user-to-user collaborative filtering. It compares users based on similar rating behavior and then uses those similarities to recommend movies.
+
+The recommender output includes:
+
+- top 3 recommended movies for each user
+- predicted ratings for movies not yet rated
+
+To evaluate the model, I used a hold-out split with training and test data. Then I measured how close the predicted ratings were to the real ratings by using RMSE, MSE, and MAE.
