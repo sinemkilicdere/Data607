@@ -1,0 +1,327 @@
+---
+title: "Final Project: What Factors Are Associated with Higher Valuation in SaaS Companies?"
+author: "Sinem"
+format: html
+editor: visual
+---
+
+## Approach
+
+For this final project, I analyze what factors are associated with higher valuation in SaaS companies. Valuation is often used as a measure of business success and understanding what relates to higher valuation can provide useful insights for entrepreneurs and investors. I used a Kaggle dataset of the top 100 SaaS companies as my main data source. And I also use country level information from the REST Countries API as a second data source. My workflow follows a standard data science process: load the data, clean the columns, transform variables into usable numeric formats, join a second data source, perform statistical analysis, create visualization and summarize the main conclusions.
+
+## Code Base
+
+### Load Libraries
+
+```{r}
+library(tidyverse)
+library(jsonlite)
+library(scales)
+```
+
+### Load Data Source 1: SaaS Companies Dataset
+
+```{r}
+raw_url <- "https://raw.githubusercontent.com/sinemkilicdere/Data607/refs/heads/main/FINAL/top_100_saas_companies_2025.csv"
+
+saas_raw <- read_csv(raw_url, show_col_types = FALSE)
+
+glimpse(saas_raw)
+```
+
+### Clean and Transform the SaaS Dataset
+
+The money columns in this dataset are stored as text, such as `$270B` or `$65.4M`. I convert these values into numeric dollar amounts so they can be analyzed.
+
+```{r}
+convert_money <- function(x) {
+  x <- str_remove_all(x, "\\$|,")
+  case_when(
+    str_detect(x, "T") ~ as.numeric(str_remove(x, "T")) * 1e12,
+    str_detect(x, "B") ~ as.numeric(str_remove(x, "B")) * 1e9,
+    str_detect(x, "M") ~ as.numeric(str_remove(x, "M")) * 1e6,
+    str_detect(x, "K") ~ as.numeric(str_remove(x, "K")) * 1e3,
+    TRUE ~ as.numeric(x)
+  )
+}
+
+saas_clean <- saas_raw %>%
+  rename(
+    company = `Company Name`,
+    founded_year = `Founded Year`,
+    hq = HQ,
+    industry = Industry,
+    total_funding = `Total Funding`,
+    arr = ARR,
+    valuation = Valuation,
+    employees = Employees,
+    top_investors = `Top Investors`,
+    product = Product,
+    g2_rating = `G2 Rating`
+  ) %>%
+  mutate(
+    total_funding_num = convert_money(total_funding),
+    arr_num = convert_money(arr),
+    valuation_num = convert_money(valuation),
+    employees_num = as.numeric(str_remove_all(employees, ",")),
+    company_age = 2025 - founded_year,
+    hq_country = str_trim(str_extract(hq, "[^,]+$")),
+    hq_country = if_else(hq_country == "USA", "United States", hq_country),
+    valuation_billions = valuation_num / 1e9,
+    arr_billions = arr_num / 1e9,
+    funding_billions = total_funding_num / 1e9,
+    revenue_per_employee = arr_num / employees_num,
+    valuation_to_arr = valuation_num / arr_num,
+    funding_efficiency = valuation_num / total_funding_num
+  )
+
+saas_clean %>%
+  select(company, industry, hq_country, funding_billions, arr_billions, valuation_billions, employees_num, g2_rating) %>%
+  head(10)
+```
+
+Some values are listed as "N/A" in the original dataset, so R converts them to missing values during cleaning.
+
+### Check Missing Values
+
+I check how many missing values exist in important columns.
+
+```{r}
+saas_clean %>%
+  summarize(
+    missing_funding = sum(is.na(total_funding_num)),
+    missing_arr = sum(is.na(arr_num)),
+    missing_valuation = sum(is.na(valuation_num)),
+    missing_employees = sum(is.na(employees_num)),
+    missing_g2_rating = sum(is.na(g2_rating))
+  )
+```
+
+For analysis that uses funding, I remove rows with missing funding values because the efficiency calculation needs funding in the denominator.
+
+```{r}
+saas_analysis <- saas_clean %>%
+  filter(
+    !is.na(total_funding_num),
+    !is.na(arr_num),
+    !is.na(valuation_num),
+    !is.na(employees_num),
+    total_funding_num > 0,
+    arr_num > 0,
+    valuation_num > 0,
+    employees_num > 0
+  )
+```
+
+### Load Data Source 2: Country Data from REST Countries API
+
+I use the REST Countries API. This allows me to add basic country level information like region and population based on the company headquarters location. This data is not central to the main analysis, but it adds additional context.
+
+```{r}
+country_api <- "https://restcountries.com/v3.1/all?fields=name,population,region,cca3"
+
+country_data <- fromJSON(country_api, flatten = TRUE) %>%
+  as_tibble() %>%
+  transmute(
+    hq_country = name.common,
+    country_region = region,
+    country_population = population,
+    country_code = cca3
+  )
+
+saas_joined <- saas_analysis %>%
+  left_join(country_data, by = "hq_country")
+
+saas_joined %>%
+  select(company, hq_country, country_region, country_population) %>%
+  head(10)
+```
+
+### Descriptive Summary
+
+```{r}
+saas_joined %>%
+  summarize(
+    number_of_companies = n(),
+    average_valuation_b = mean(valuation_billions, na.rm = TRUE),
+    median_valuation_b = median(valuation_billions, na.rm = TRUE),
+    average_arr_b = mean(arr_billions, na.rm = TRUE),
+    average_funding_b = mean(funding_billions, na.rm = TRUE),
+    average_employees = mean(employees_num, na.rm = TRUE),
+    average_g2_rating = mean(g2_rating, na.rm = TRUE)
+  )
+```
+
+### Statistical Analysis 1: Correlation with Valuation
+
+This analysis checks which numeric variables are most strongly related to valuation.
+
+```{r}
+correlation_results <- saas_joined %>%
+  summarize(
+    funding_correlation = cor(valuation_num, total_funding_num, use = "complete.obs"),
+    arr_correlation = cor(valuation_num, arr_num, use = "complete.obs"),
+    employees_correlation = cor(valuation_num, employees_num, use = "complete.obs"),
+    g2_rating_correlation = cor(valuation_num, g2_rating, use = "complete.obs"),
+    age_correlation = cor(valuation_num, company_age, use = "complete.obs")
+  ) %>%
+  pivot_longer(
+    cols = everything(),
+    names_to = "variable",
+    values_to = "correlation"
+  ) %>%
+  arrange(desc(abs(correlation)))
+
+correlation_results
+```
+
+### Graphic 1: Correlations with Valuation
+
+```{r}
+ggplot(correlation_results, aes(x = reorder(variable, correlation), y = correlation)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Correlation Between Business Factors and Valuation",
+    x = "Variable",
+    y = "Correlation with Valuation"
+  ) +
+  theme_minimal()
+```
+
+### Statistical Analysis 2: Linear Regression
+
+I use a simple regression model to see how ARR, funding, employees, company age, and G2 rating relate to valuation at the same time. I use log values because the money variables are very large and spread out.
+
+```{r}
+saas_model_data <- saas_joined %>%
+  mutate(
+    log_valuation = log(valuation_num),
+    log_arr = log(arr_num),
+    log_funding = log(total_funding_num),
+    log_employees = log(employees_num)
+  )
+
+valuation_model <- lm(
+  log_valuation ~ log_arr + log_funding + log_employees + company_age + g2_rating,
+  data = saas_model_data
+)
+
+summary(valuation_model)
+```
+
+### Graphic 2: ARR vs Valuation
+
+```{r}
+ggplot(saas_joined, aes(x = arr_billions, y = valuation_billions)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "ARR and Valuation Among Top SaaS Companies",
+    x = "ARR in Billions of Dollars (log scale)",
+    y = "Valuation in Billions of Dollars (log scale)"
+  ) +
+  theme_minimal()
+```
+
+### Graphic 3: Funding vs Valuation
+
+```{r}
+ggplot(saas_joined, aes(x = funding_billions, y = valuation_billions)) +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(
+    title = "Funding and Valuation Among Top SaaS Companies",
+    x = "Total Funding in Billions of Dollars (log scale)",
+    y = "Valuation in Billions of Dollars (log scale)"
+  ) +
+  theme_minimal()
+```
+
+### Extra Feature: Create a SaaS Efficiency Ranking
+
+For the extra feature, I create a business efficiency metric. This ranks companies by how much valuation they created relative to their total funding.
+Because some older companies have very small recorded funding amounts, the funding efficiency ranking should be interpreted carefully. It is useful as an exploratory metric, but it may not represent all historical capital used by each company.
+
+```{r}
+efficiency_ranking <- saas_joined %>%
+  arrange(desc(funding_efficiency)) %>%
+  select(
+    company,
+    industry,
+    valuation_billions,
+    funding_billions,
+    arr_billions,
+    funding_efficiency,
+    revenue_per_employee
+  ) %>%
+  head(10)
+
+efficiency_ranking
+```
+
+### Graphic 4: Top 10 Companies by Funding Efficiency
+
+```{r}
+ggplot(efficiency_ranking, aes(x = reorder(company, funding_efficiency), y = funding_efficiency)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top 10 SaaS Companies by Funding Efficiency",
+    x = "Company",
+    y = "Valuation / Total Funding"
+  ) +
+  theme_minimal()
+```
+
+### Industry Level Summary
+
+```{r}
+industry_summary <- saas_joined %>%
+  group_by(industry) %>%
+  summarize(
+    company_count = n(),
+    average_valuation_b = mean(valuation_billions, na.rm = TRUE),
+    average_arr_b = mean(arr_billions, na.rm = TRUE),
+    average_g2_rating = mean(g2_rating, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(average_valuation_b)) %>%
+  head(10)
+
+industry_summary
+```
+
+### Graphic 5: Top Industries by Average Valuation
+
+```{r}
+ggplot(industry_summary, aes(x = reorder(industry, average_valuation_b), y = average_valuation_b)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Top SaaS Industries by Average Valuation",
+    x = "Industry",
+    y = "Average Valuation in Billions of Dollars"
+  ) +
+  theme_minimal()
+```
+
+## Conclusion
+
+I looked at what factors are related to higher valuation in SaaS companies. Based on the correlation results, ARR had the strongest relationship with valuation, which was much higher than the other variables. The number of employees also showed a strong relationship, while funding had almost no correlation with valuation in this dataset.
+
+This was a bit surprising, because I expected funding to have a bigger impact. However, the results suggest that revenue is a much stronger indicator of company value than how much funding a company has raised.
+
+I also created a funding efficiency metric, which shows how much valuation a company generates relative to its funding. Some companies appear extremely efficient, but this should be interpreted carefully because older companies may not have complete funding data in the dataset.
+
+Overall, this analysis shows that business performance, especially revenue, seems to matter more than funding when it comes to valuation.
+
+## Project Challenge
+
+One challenge I faced in this project was that important columns such as funding, ARR, and valuation were stored as text instead of numbers. These values included symbols like $, M, B, and T, so I could not directly use them in calculations.
+
+To fix this, I wrote a function to convert these values into numeric format. During this process, some values such as “N/A” were converted into missing values, which caused warnings in R. I handled this by filtering out incomplete rows before running the analysis.
