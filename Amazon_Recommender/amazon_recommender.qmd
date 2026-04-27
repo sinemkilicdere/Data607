@@ -1,0 +1,102 @@
+---
+title: "Amazon Recommender"
+author: "Sinem K Moschos"
+format: html
+editor: visual
+---
+
+# Introduction
+
+For this discussion, I chose to analyze Amazon's product recommendation system. I picked Amazon because its recommendations are very visible on the site and they appear in many places, such as the homepage, product pages, shopping cart, and sections like "Frequently bought together" and "Customers who bought this also bought."
+
+Amazon is a strong example of a commercial recommender system because it helps both customers and the company. Customers use recommendations to discover products faster, while Amazon uses recommendations to increase engagement, conversion, and sales.
+
+# Scenario Design Analysis
+
+Scenario Design focuses on three questions:
+
+1. Who are the target users?
+
+2. What are their key goals?
+
+3. How can the system help them accomplish those goals?
+
+For Amazon, I think it makes sense to answer these questions twice: once for customers and once for Amazon as the organization.
+
+# Customer Scenario Design
+
+## 1. Who are the target users?
+
+The target users are customers who shop online. Some users already know what they want, but others are browsing, comparing products or discovering similar items.
+
+## 2. What are their key goals?
+
+The customer's main goals are to find useful products quickly, compare options, discover related products and make a good buying decision. Customers also want the recommendations to feel relevant instead of random or repetitive.
+
+## 3. How can Amazon help them accomplish those goals?
+
+Amazon helps customers by using product relationships, browsing history, purchase history, ratings and cart activity to recommend related items. Instead of only finding similar customers, this method finds relationships between products that customers tend to buy together.
+
+This makes sense for Amazon because the site has millions of customers and millions of catalog items. The paper explains that Amazon needed a system that could scale to very large data, return recommendations quickly and still produce useful recommendations for customers.
+
+# Amazon Business Scenario Design
+
+## 1. Who are the target users?
+
+From Amazon's side, the target users are also the business teams that depend on recommendations, such as product, marketing, advertising.
+
+## 2. What are their key goals?
+
+Amazon's goals are to increase conversion rates, raise average order value, encourage repeat purchases and keep customers on hook. The recommender system also helps Amazon use its large product catalog more effectively by showing customers items they might not have searched for directly.
+
+## 3. How can the recommender system help Amazon accomplish those goals?
+
+The recommender system helps Amazon by turning customer behavior into personalized product suggestions. According to the Amazon paper, personalized recommendations can perform better than general content like banner ads or top seller lists. this is also part of Amazon's sales and marketing strategy.
+
+# Reverse Engineering the Site
+
+From observing Amazon's interface, I think Amazon likely uses several recommendation signals, including:
+
+- Products the user viewed
+
+- Products the user bought
+
+- Products often bought together
+
+- Product ratings and reviews
+
+- Popular products in the same category
+
+- Sponsored products
+
+Amazon places recommendations at different points in the shopping journey. On a product page, it may show related products or "Frequently bought together." In the cart, it may show add-on items. On the homepage, it may show personalized recommendations based on past activity.
+
+This shows that Amazon's recommender system is not only one feature. It is spread across the full shopping experience.
+
+# How the Recommendation System Probably Works
+
+Based on the Amazon article, Amazon's recommender system uses item-to-item collaborative filtering. The basic idea is that the system looks at products that customers tend to interact with together. For example, if many customers buy a camera and then also buy a memory card, the system can recommend the memory card to another customer viewing or buying that camera.
+
+This approach is useful because it does not need to compare one user with every other user in real time. Instead, Amazon can create a similar-items table offline and then quickly use that table when a customer is shopping.
+
+# Recommendations for Improvement
+
+One improvement I would suggest is giving users more control over their recommendations. For example, Amazon could make it easier to mark an item as "not interested," "already bought elsewhere," or "this was a gift." This would help reduce irrelevant recommendations.
+
+A second improvement is making the difference between sponsored recommendations and organic personalized recommendations clearer. Sponsored products can be useful, but if they feel too mixed with real recommendations, users may trust the system less.
+
+A third improvement is improving post-purchase recommendations. If someone buys a printer, Amazon should stop recommending the same printer and instead focus on useful related products like ink, paper, or warranty options.
+
+A fourth improvement is adding more explanation to recommendations. For example, Amazon could say "Recommended because you bought a printer" or "Recommended because customers bought this with your recent purchase." This would make the recommendation feel more understandable and useful.
+
+# Conclusion
+
+Overall, Amazon's recommender system is successful because it supports both customer goals and business goals. Customers get faster product discovery, while Amazon gets more sales opportunities. The system is also strong because it appears throughout the shopping experience, not only on one page.
+
+However, Amazon could improve the system by making recommendations more transparent, giving users more feedback control, and reducing repetitive suggestions after a product has already been purchased.
+
+# References
+
+Linden, G., Smith, B., & York, J. (2003). Amazon.com recommendations: Item-to-item collaborative filtering. IEEE Internet Computing, 7(1), 76–80.
+
+Temkin, B. D. (2004). Scenario Design: A Disciplined Approach to Customer Experience. Forrester Research.
